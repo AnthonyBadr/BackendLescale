@@ -297,7 +297,7 @@ namespace backend.Controllers
         public IActionResult GetOrdersinProcess()
         {
             var collection = _database.GetCollection<Order>("Order");
-
+            int x = 0;
             // Find orders with status "Pending"
             var pendingOrders = collection.Find(order => order.status == "Pending").ToList();
 
