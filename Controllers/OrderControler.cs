@@ -194,15 +194,11 @@ namespace backend.Controllers
             }
 
 
-            var updategross = Builders<Gross>.Update.Set(t => t.totalGross, TP);
+            //updatetheGrossnew()
 
-            // Update the document in the Table collection
-            var resultgross = await GrossCollection.UpdateOneAsync(filtergross, updategross);
 
-            // TP now contains the sum of all 'totalprice' values
 
-           
-         
+
             _globalService.LogAction($"Order '{tableNumber}' Created with total price {totalPrice}.", "Created");
 
             return Ok(new { message = "Order created successfully", orderId = document["_id"].ToString(), totalPrice });
@@ -547,7 +543,7 @@ namespace backend.Controllers
 
 
                 // Update the document in the Table collection
-                updatetheGross(grossnumber);
+                //updatetheGross(grossnumber);
 
                 if (result.ModifiedCount > 0)
                 {
@@ -590,7 +586,17 @@ namespace backend.Controllers
 
            // Delete the order from the collection
            await collectionOrdernew.DeleteOneAsync(filterOrder);
-            updatetheGross(x);
+
+            var orderpayment = await _database.GetCollection<Order>("Orders")
+                           .Find(Builders<Order>.Filter.Eq(o => o.ordernumber, ordernumber))
+                           .FirstOrDefaultAsync();
+
+            var paymentAmount = order?.totalprice ?? 0;
+
+
+
+
+            updatetheGrossnew(x, -paymentAmount);
 
             // Log the deletion
             _globalService.LogAction($"Order '{ordernumber}' deleted.", "Deleted");
@@ -599,9 +605,11 @@ namespace backend.Controllers
         }
 
 
-        public async Task updatetheGross(int grossNumber)
+        public async Task updatetheGross(int grossNumber,double amount ) 
         {
             var GrossCollection = _database.GetCollection<Gross>("Gross");
+
+
             var collectionOrdernew = _database.GetCollection<Order>("Orders"); // Use Order type instead of BsonDocument
 
             // Filter for orders that match the grossNumber using the Order class
@@ -632,7 +640,19 @@ namespace backend.Controllers
         }
 
 
+        public async Task updatetheGrossnew(int grossNumber, double amount)
+        {
+            var GrossCollection = _database.GetCollection<Gross>("Gross");
 
+            // Find the first 'Gross' document with a status of 'Pending'
+            var filtergross = Builders<Gross>.Filter.Eq(g => g.status, "Pending");
+            var theGross = GrossCollection.Find(filtergross).FirstOrDefault();
+            // Increment the 'grossnumber' in the 'Gross' document by 5
+            var update = Builders<Gross>.Update.Inc(g => g.totalGross, amount);
+            GrossCollection.UpdateOne(filtergross, update);
+
+
+        }
 
 
 
