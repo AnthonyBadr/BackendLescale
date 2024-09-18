@@ -421,8 +421,36 @@ namespace backend.Controllers
             return Ok($"Item '{name}' deleted successfully.");
         }
 
-      
+        //added 
+        [HttpGet("GetAllCategories")]
+        public IActionResult GetAllCategories()
+        {
+            try
+            {
+                // Get the 'Category' collection from the database
+                var collection = _database.GetCollection<BsonDocument>("Category");
 
+                // Find all documents in the 'Category' collection
+                var categories = collection.Find(new BsonDocument()).ToList();
+
+                // Check if there are any categories
+                if (categories == null || categories.Count == 0)
+                {
+                    return NotFound("No categories found.");
+                }
+
+                // Convert BsonDocuments to JSON and return them
+                var jsonCategories = categories.Select(doc => doc.ToJson()).ToList();
+
+                return Ok(jsonCategories);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception and return a 500 internal server error
+                _logger.LogError($"Error fetching categories: {ex.Message}");
+                return StatusCode(500, "Internal server error");
+            }
+        }
 
 
     }

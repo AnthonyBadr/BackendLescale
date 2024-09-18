@@ -86,7 +86,11 @@ namespace backend.Controllers
             {
                 tableNumber = tableNumberElement.GetString();
             }
-
+            string stype = "";
+            if (jsonElement.TryGetProperty("type", out JsonElement typeElement))
+            {
+                stype = typeElement.GetString();
+            }
             // Get the MongoDB collection for Table
             var tableCollection = _database.GetCollection<Table>("Table");
 
@@ -112,12 +116,19 @@ namespace backend.Controllers
                 return Ok(new { success = false, message = "Start your day please" });
             }
 
+            if (stype == "Dine in")
+            {
+                var update = Builders<Table>.Update.Set(t => t.Status, "Taken");
 
+                // Update the document in the Table collection
+                var result = await tableCollection.UpdateOneAsync(filter, update);
+            }else if (stype == "Delivery")
+            {
+
+            }
+         
             // Define the update to change the status
-            var update = Builders<Table>.Update.Set(t => t.Status, "Taken");
-
-            // Update the document in the Table collection
-            var result = await tableCollection.UpdateOneAsync(filter, update);
+           
 
             // Get the MongoDB collection for Orders
             var ordersCollection = _database.GetCollection<Order>("Orders");
@@ -140,7 +151,7 @@ namespace backend.Controllers
 
             document["grossNumber"] = grossnumber;
 
-            double totalPrice = CalculateTotalPrice(jsonElement);
+            double totalPrice = CalculateTotalPrice(jsonElement ,stype);
 
             document["totalprice"] = totalPrice;
       
@@ -182,19 +193,36 @@ namespace backend.Controllers
             return Ok(new { message = "Order created successfully", orderId = document["_id"].ToString(), totalPrice });
         }
 
-        private double CalculateTotalPrice(JsonElement jsonElement)
+        private double CalculateTotalPrice(JsonElement jsonElement, string stype)
         {
             double total = 0;
-            if (jsonElement.TryGetProperty("items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
+            if (stype=="Dine in")
             {
-                foreach (JsonElement item in itemsElement.EnumerateArray())
+               
+                if (jsonElement.TryGetProperty("items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
                 {
-                    if (item.TryGetProperty("price", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
+                    foreach (JsonElement item in itemsElement.EnumerateArray())
                     {
-                        total += price;
+                        if (item.TryGetProperty("price", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
+                        {
+                            total += price;
+                        }
+                    }
+                }
+            }else if (stype == "Delivery")
+            {
+                if (jsonElement.TryGetProperty("items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (JsonElement item in itemsElement.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("pricedel", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
+                        {
+                            total += price;
+                        }
                     }
                 }
             }
+          
             return total;
         }
 
@@ -325,14 +353,16 @@ namespace backend.Controllers
                 string jsonString = jsonElement.GetRawText();
                 BsonDocument updatedDocument = BsonDocument.Parse(jsonString);
                 _logger.LogInformation($"Received JSON: {jsonString}");
-               double pricer= CalculateTotalPrice(jsonElement);
+                string a=updatedDocument["type"].AsString;
+
+               double pricer= CalculateTotalPrice(jsonElement,a);
                 var collection = _database.GetCollection<BsonDocument>("Orders");
 
 
                 var filter = Builders<BsonDocument>.Filter.Eq("ordernumber", ordernumber);
                 var document = await collection.Find(filter).FirstOrDefaultAsync();
 
-                double totalnewpayment =CalculateTotalPrice(jsonElement);
+                double totalnewpayment =CalculateTotalPrice(jsonElement,"jgjhdgjhgfj");
 
                 if (document.Contains("tablenumber"))
                 {
@@ -393,8 +423,7 @@ namespace backend.Controllers
                 var result = await collection.ReplaceOneAsync(filter, updatedDocument);
 
 
-                
-                if(tablenumberstring != tableNumberValue)
+                if (a == "Delivery")
                 {
                     var tableCollection = _database.GetCollection<Table>("Table");
 
@@ -406,18 +435,34 @@ namespace backend.Controllers
 
                     // Update the document in the Table collection
                     var resultold = await tableCollection.UpdateOneAsync(filtertablold, updateold);
-                    
-                    var filtertabnew= Builders<Table>.Filter.Eq(t => t.tableNumber, int.Parse(tableNumberValue));
+                }else if(a=="Dine in")
+                {
+                    if (tablenumberstring != tableNumberValue)
+                    {
+                        var tableCollection = _database.GetCollection<Table>("Table");
 
-                    // Define the update to change the status
-                    var updateoldnew  = Builders<Table>.Update.Set(t => t.Status, "Taken");
 
-                    // Update the document in the Table collection
-                    var resultoldnew = await tableCollection.UpdateOneAsync(filtertabnew, updateoldnew);
+                        var filtertablold = Builders<Table>.Filter.Eq(t => t.tableNumber, int.Parse(tablenumberstring));
+
+                        // Define the update to change the status
+                        var updateold = Builders<Table>.Update.Set(t => t.Status, "Available");
+
+                        // Update the document in the Table collection
+                        var resultold = await tableCollection.UpdateOneAsync(filtertablold, updateold);
+
+                        var filtertabnew = Builders<Table>.Filter.Eq(t => t.tableNumber, int.Parse(tableNumberValue));
+
+                        // Define the update to change the status
+                        var updateoldnew = Builders<Table>.Update.Set(t => t.Status, "Taken");
+
+                        // Update the document in the Table collection
+                        var resultoldnew = await tableCollection.UpdateOneAsync(filtertabnew, updateoldnew);
+
+                    }
 
                 }
-                
-             
+
+
 
 
                 // Update the document in the Table collection
@@ -442,32 +487,29 @@ namespace backend.Controllers
 
 
         [HttpDelete("DeleteOrder/{ordernumber}")]
-        public IActionResult DeleteOrder(string ordernumber)
+        public async Task<IActionResult> DeleteOrder(string ordernumber)
         {
-            var OrderCollection = _database.GetCollection<Order>("Order");
+            var collectionOrdernew = _database.GetCollection<Order>("Orders"); // Use Order type instead of BsonDocument
 
+            // Filter for orders that match the given ordernumber
+            var filterOrder = Builders<Order>.Filter.Eq(o => o.ordernumber, ordernumber);
 
+            // Find the order matching the ordernumber
+            var order = await collectionOrdernew.Find(filterOrder).FirstOrDefaultAsync();
 
-
-
-
-
-
-            var filter = Builders<Order>.Filter.Eq(t => t.ordernumber, ordernumber);
-
-          
-
-            var existingOrder = OrderCollection.Find(filter).FirstOrDefault();
-
-            if (existingOrder == null)
+            // If the order is not found, return a 404 NotFound result
+            if (order == null)
             {
                 return NotFound("Order not found");
             }
 
+            // Store the grossNumber before deleting
+            int x = order.grossNumber;
+          
 
-            // Delete the table from the collection
-            OrderCollection.DeleteOne(filter);
-           
+           // Delete the order from the collection
+           await collectionOrdernew.DeleteOneAsync(filterOrder);
+            updatetheGross(x);
 
             // Log the deletion
             _globalService.LogAction($"Order '{ordernumber}' deleted.", "Deleted");
@@ -487,7 +529,7 @@ namespace backend.Controllers
 
             double TP = 0; // Total price accumulator
 
-            if (documents == null)
+            if (documents.Count() == 0)
             {
                 TP = 0;
             }else

@@ -16,6 +16,8 @@ namespace backend.Models
 
         public double price { get; set; }
 
+        public double pricedel { get; set; }
+
         public List<string> Ingredients = new List<string>();
 
         public string Type {  get; set; }

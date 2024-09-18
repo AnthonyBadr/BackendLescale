@@ -26,6 +26,10 @@ namespace backend.Models
         public int grossNumber { get; set; }
 
 
+        public double deliverycharge { get; set; }
+
+        public string location { get; set; }
+
 
     }
 }
