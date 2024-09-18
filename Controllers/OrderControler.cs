@@ -25,11 +25,26 @@ namespace backend.Controllers
             _database = database;
             _globalService = globalService;
         }
-   
+   //ignore
         public IActionResult Index()
         {
             int x = 0;
             var collection = _database.GetCollection<BsonDocument>("Order");
+            var documents = collection.Find(new BsonDocument()).ToList();
+
+            // Convert documents to JSON
+            var jsonResult = documents.Select(doc => doc.ToJson()).ToList();
+
+            // Return the data as JSON
+            return Json(jsonResult);
+        }
+
+        [HttpGet("GetAllOrders")]
+
+        public IActionResult GetAllOrders()
+        {
+            int x = 0;
+            var collection = _database.GetCollection<BsonDocument>("Orders");
             var documents = collection.Find(new BsonDocument()).ToList();
 
             // Convert documents to JSON
@@ -355,14 +370,14 @@ namespace backend.Controllers
                 _logger.LogInformation($"Received JSON: {jsonString}");
                 string a=updatedDocument["type"].AsString;
 
-               double pricer= CalculateTotalPrice(jsonElement,a);
+            
                 var collection = _database.GetCollection<BsonDocument>("Orders");
 
 
                 var filter = Builders<BsonDocument>.Filter.Eq("ordernumber", ordernumber);
                 var document = await collection.Find(filter).FirstOrDefaultAsync();
 
-                double totalnewpayment =CalculateTotalPrice(jsonElement,"jgjhdgjhgfj");
+                double totalnewpayment =CalculateTotalPrice(jsonElement, a);
 
                 if (document.Contains("tablenumber"))
                 {
