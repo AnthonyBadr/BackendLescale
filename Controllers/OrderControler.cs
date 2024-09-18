@@ -245,6 +245,72 @@ namespace backend.Controllers
 
 
 
+        // Get a specific document by ID
+        [HttpGet("GetOrderbyOrderNumber/{ordernumber}")]
+        public IActionResult GetOrderbyOrderNumber(string ordernumber)
+        {
+            try
+            {
+                // Get the 'Orders' collection and create the filter
+                var collection = _database.GetCollection<BsonDocument>("Orders");
+                var filter = Builders<BsonDocument>.Filter.Eq("ordernumber", ordernumber);
+
+                // Find the document matching the filter
+                var document = collection.Find(filter).FirstOrDefault();
+
+                // If no document is found, return a NotFound response
+                if (document == null)
+                {
+                    return NotFound($"Order with ordernumber {ordernumber} not found.");
+                }
+
+                // Convert the BsonDocument to a dynamic object and return it as JSON
+                var jsonOrder = BsonTypeMapper.MapToDotNetValue(document);
+
+                return Ok(jsonOrder);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception and return a 500 internal server error
+                _logger.LogError($"Error fetching order {ordernumber}: {ex.Message}");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        //https://localhost:7092/api/Order/GetOrderbyDay?date=9/18/2024
+        [HttpGet("GetOrderbyDay")]
+        public IActionResult GetOrderbyDate([FromQuery] string date)
+        {
+            try
+            {
+                // Get the 'Orders' collection
+                var collection = _database.GetCollection<BsonDocument>("Orders");
+
+                // Create a filter to match the date part of the 'orderDate' field (assuming it's stored as a string)
+                // Using a regular expression to match the date part only
+                var filter = Builders<BsonDocument>.Filter.Regex("dateofOrder", new BsonRegularExpression($"^{date}"));
+
+                // Find all documents matching the filter
+                var documents = collection.Find(filter).ToList();
+
+                // If no documents are found, return a NotFound response
+                if (documents == null || documents.Count == 0)
+                {
+                    return NotFound($"No orders found for the date {date}.");
+                }
+
+                // Convert the BsonDocuments to dynamic objects and return them as JSON
+                var jsonOrders = documents.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
+
+                return Ok(jsonOrders);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception and return a 500 internal server error
+                _logger.LogError($"Error fetching orders for date {date}: {ex.Message}");
+                return StatusCode(500, "Internal server error");
+            }
+        }
 
 
 
@@ -254,7 +320,7 @@ namespace backend.Controllers
 
 
 
-            [HttpPost("CreateGross")]
+        [HttpPost("CreateGross")]
         public async Task<IActionResult> CreateGross([FromBody] JsonElement jsonElement)
         {
             try
