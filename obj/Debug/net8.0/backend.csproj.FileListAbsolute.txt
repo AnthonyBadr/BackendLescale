@@ -136,3 +136,4 @@ C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Debu
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Debug\net8.0\backend.pdb
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Debug\net8.0\backend.genruntimeconfig.cache
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Debug\net8.0\ref\backend.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\bin\Debug\net8.0\Newtonsoft.Json.dll

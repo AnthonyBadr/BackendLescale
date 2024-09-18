@@ -43,12 +43,12 @@ namespace backend.Controllers
 
         public IActionResult GetAllOrders()
         {
-            int x = 0;
             var collection = _database.GetCollection<BsonDocument>("Orders");
             var documents = collection.Find(new BsonDocument()).ToList();
 
-            // Convert documents to JSON
-            var jsonResult = documents.Select(doc => doc.ToJson()).ToList();
+            // Convert BSON documents to dynamic objects
+
+            var jsonResult = documents.Select(doc => Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(doc.ToJson())).ToList();
 
             // Return the data as JSON
             return Json(jsonResult);

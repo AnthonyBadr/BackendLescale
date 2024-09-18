@@ -422,35 +422,36 @@ namespace backend.Controllers
         }
 
         //added 
-        [HttpGet("GetAllCategories")]
-        public IActionResult GetAllCategories()
+        [HttpGet("GetAllOrders")]
+        public IActionResult GetAllOrders()
         {
             try
             {
-                // Get the 'Category' collection from the database
-                var collection = _database.GetCollection<BsonDocument>("Category");
+                // Get the 'Orders' collection from the database
+                var collection = _database.GetCollection<BsonDocument>("Orders");
 
-                // Find all documents in the 'Category' collection
-                var categories = collection.Find(new BsonDocument()).ToList();
+                // Find all documents in the 'Orders' collection
+                var orders = collection.Find(new BsonDocument()).ToList();
 
-                // Check if there are any categories
-                if (categories == null || categories.Count == 0)
+                // Check if there are any orders
+                if (orders == null || orders.Count == 0)
                 {
-                    return NotFound("No categories found.");
+                    return NotFound("No orders found.");
                 }
 
                 // Convert BsonDocuments to dynamic objects and return them as JSON
-                var jsonCategories = categories.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
+                var jsonOrders = orders.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
-                return Ok(jsonCategories);
+                return Ok(jsonOrders);
             }
             catch (Exception ex)
             {
                 // Log the exception and return a 500 internal server error
-                _logger.LogError($"Error fetching categories: {ex.Message}");
+                _logger.LogError($"Error fetching orders: {ex.Message}");
                 return StatusCode(500, "Internal server error");
             }
         }
+
 
 
 

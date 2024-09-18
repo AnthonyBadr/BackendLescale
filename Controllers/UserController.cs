@@ -24,23 +24,36 @@ namespace backend.Controllers
 
 
 
-        //ignore this please 
         [HttpGet]
         public IActionResult Index()
         {
-            int x = 0;
-            var collection = _database.GetCollection<BsonDocument>("User");
-            var documents = collection.Find(new BsonDocument()).ToList();
+            try
+            {
+                // Get the 'User' collection from the database
+                var collection = _database.GetCollection<BsonDocument>("User");
 
+                // Find all documents in the 'User' collection
+                var users = collection.Find(new BsonDocument()).ToList();
 
-           
+                // Check if there are any users
+                if (users == null || users.Count == 0)
+                {
+                    return NotFound("No users found.");
+                }
 
-            // Convert documents to JSON
-            var jsonResult = documents.Select(doc => doc.ToJson()).ToList();
+                // Convert BsonDocuments to dynamic objects and return them as JSON
+                var jsonUsers = users.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
-            // Return the data as JSON
-            return Json(jsonResult);
+                return Ok(jsonUsers);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception and return a 500 internal server error
+                _logger.LogError($"Error fetching users: {ex.Message}");
+                return StatusCode(500, "Internal server error");
+            }
         }
+
 
         public IActionResult Privacy()
         {
@@ -57,18 +70,31 @@ namespace backend.Controllers
         [HttpGet("GetUser")]
         public IActionResult GetUser()
         {
-            int x = 0;
-            var collection = _database.GetCollection<BsonDocument>("User");
-            var documents = collection.Find(new BsonDocument()).ToList();
+            try
+            {
+                // Get the 'User' collection from the database
+                var collection = _database.GetCollection<BsonDocument>("User");
 
+                // Find all documents in the 'User' collection
+                var users = collection.Find(new BsonDocument()).ToList();
 
+                // Check if there are any users
+                if (users == null || users.Count == 0)
+                {
+                    return NotFound("No users found.");
+                }
 
+                // Convert BsonDocuments to dynamic objects and return them as JSON
+                var jsonUsers = users.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
-            // Convert documents to JSON
-            var jsonResult = documents.Select(doc => doc.ToJson()).ToList();
-
-            // Return the data as JSON
-            return Json(jsonResult);
+                return Ok(jsonUsers);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception and return a 500 internal server error
+                _logger.LogError($"Error fetching users: {ex.Message}");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         // Create a new document
