@@ -9,12 +9,12 @@ builder.Services.AddControllersWithViews();
 
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(builder =>
+    options.AddPolicy("AllowSpecificOrigin", builder =>
     {
-        builder.WithOrigins("http://localhost:3000", "https://localhost:3001") // Allows any port on localhost
-               .AllowAnyMethod()    // Allows any HTTP method (GET, POST, etc.)
-               .AllowAnyHeader()    // Allows any HTTP headers
-               .AllowCredentials(); // Allows credentials (optional)
+        builder.WithOrigins("http://localhost:3000") // Specify your frontend origin
+               .AllowAnyMethod()                     // Allow all HTTP methods (GET, POST, etc.)
+               .AllowAnyHeader()                     // Allow all headers
+               .AllowCredentials();                  // Allow credentials (e.g., cookies)
     });
 });
 
@@ -26,9 +26,7 @@ builder.Services.Configure<DatabaseSettings>(
 builder.Services.AddSingleton<IMongoClient>(s =>
     new MongoClient("mongodb+srv://joehadchity:J1j2j3j4@escale-royale-cluster.lann0.mongodb.net/?retryWrites=true&w=majority&authSource=admin&authMechanism=SCRAM-SHA-1&appName=escale-royale-cluster"));
 
-
 builder.Services.AddSingleton<GlobalService>(); // Register GlobalService
-
 
 // Register IMongoDatabase
 builder.Services.AddSingleton(s =>
@@ -50,6 +48,9 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
+// Apply CORS before routing and authorization
+app.UseCors("AllowSpecificOrigin");
 
 app.UseRouting();
 
