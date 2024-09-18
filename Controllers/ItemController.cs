@@ -439,8 +439,8 @@ namespace backend.Controllers
                     return NotFound("No categories found.");
                 }
 
-                // Convert BsonDocuments to JSON and return them
-                var jsonCategories = categories.Select(doc => doc.ToJson()).ToList();
+                // Convert BsonDocuments to dynamic objects and return them as JSON
+                var jsonCategories = categories.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
                 return Ok(jsonCategories);
             }
@@ -451,6 +451,7 @@ namespace backend.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
 
 
     }
