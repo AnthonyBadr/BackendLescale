@@ -194,7 +194,7 @@ namespace backend.Controllers
             }
 
 
-            //updatetheGrossnew()
+            updatetheGrossnew(grossnumber, TP);
 
 
 
@@ -440,7 +440,7 @@ namespace backend.Controllers
                 var document = await collection.Find(filter).FirstOrDefaultAsync();
 
                 double totalnewpayment =CalculateTotalPrice(jsonElement, a);
-
+                double oldpayment = 0;
                 if (document.Contains("tablenumber"))
                 {
                     var tablenumbereElement = document.GetElement("tablenumber");
@@ -457,7 +457,20 @@ namespace backend.Controllers
                     Console.WriteLine("The attribute 'customerName' does not exist.");
                 }
 
+                if (document.Contains("totalPrice"))
+                {
+                    var totalPriceE = document.GetElement("totalPrice");
 
+                    oldpayment = double.Parse(totalPriceE.ToString());
+
+
+
+                }
+                else
+                {
+                    // Handle the case where the attribute does not exist
+                    Console.WriteLine("The attribute 'customerName' does not exist.");
+                }
 
 
                 if (document != null)
@@ -543,7 +556,10 @@ namespace backend.Controllers
 
 
                 // Update the document in the Table collection
-                //updatetheGross(grossnumber);
+               
+                updatetheGrossnew(grossnumber, -oldpayment);
+                updatetheGrossnew(grossnumber, totalnewpayment);
+
 
                 if (result.ModifiedCount > 0)
                 {
