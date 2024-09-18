@@ -327,18 +327,18 @@ namespace backend.Controllers
                 _logger.LogInformation($"Received JSON: {jsonString}");
                double pricer= CalculateTotalPrice(jsonElement);
                 var collection = _database.GetCollection<BsonDocument>("Orders");
-                
+
 
                 var filter = Builders<BsonDocument>.Filter.Eq("ordernumber", ordernumber);
                 var document = await collection.Find(filter).FirstOrDefaultAsync();
 
-                double totalnewpayment=CalculateTotalPrice(jsonElement);
+                double totalnewpayment =CalculateTotalPrice(jsonElement);
 
                 if (document.Contains("tablenumber"))
                 {
                     var tablenumbereElement = document.GetElement("tablenumber");
     
-                    tablenumberstring = tablenumbereElement.Value.AsDouble.ToString();
+                    tablenumberstring = tablenumbereElement.Value.ToString();
                     
 
 
@@ -357,9 +357,9 @@ namespace backend.Controllers
                 {
                     updatedDocument["totalprice"] = totalnewpayment;
                     string orderNumberValue = document["ordernumber"].AsString;
-                     tableNumberValue = document["tablenumber"].AsString;
+                     tableNumberValue = updatedDocument["tablenumber"].AsString;
                     double beforetotalprice = document["totalprice"].AsDouble;
-                     grossnumber = document["grossNumber"].AsInt32;
+                    grossnumber = document["grossNumber"].AsInt32;
                     _logger.LogInformation($"Order Number: {orderNumberValue}");
                     _logger.LogInformation($"Table Number: {tableNumberValue}");
 
@@ -399,21 +399,21 @@ namespace backend.Controllers
                     var tableCollection = _database.GetCollection<Table>("Table");
 
 
-                    var filtertablold = Builders<Table>.Filter.Eq(t => t.tableNumber, int.Parse(tableNumberValue));
+                    var filtertablold = Builders<Table>.Filter.Eq(t => t.tableNumber, int.Parse(tablenumberstring));
 
                     // Define the update to change the status
                     var updateold = Builders<Table>.Update.Set(t => t.Status, "Available");
 
                     // Update the document in the Table collection
                     var resultold = await tableCollection.UpdateOneAsync(filtertablold, updateold);
-
-                    var filtertabnew= Builders<Table>.Filter.Eq(t => t.tableNumber, int.Parse(tablenumberstring));
+                    
+                    var filtertabnew= Builders<Table>.Filter.Eq(t => t.tableNumber, int.Parse(tableNumberValue));
 
                     // Define the update to change the status
                     var updateoldnew  = Builders<Table>.Update.Set(t => t.Status, "Taken");
 
                     // Update the document in the Table collection
-                    var resultoldnew = await tableCollection.UpdateOneAsync(filtertablold, updateold);
+                    var resultoldnew = await tableCollection.UpdateOneAsync(filtertabnew, updateoldnew);
 
                 }
                 
@@ -441,39 +441,79 @@ namespace backend.Controllers
 
 
 
-
-        public async Task updatetheGross (int grossNumber)
+        [HttpDelete("DeleteOrder/{ordernumber}")]
+        public IActionResult DeleteOrder(string ordernumber)
         {
-            var GrossCollection = _database.GetCollection<Gross>("Gross");
-            var collectionOrdernew = _database.GetCollection<BsonDocument>("Orders");
+            var OrderCollection = _database.GetCollection<Order>("Order");
 
-            var filterOrderGross = Builders<BsonDocument>.Filter.Eq("grossNumber", grossNumber);
-            var documents = await collectionOrdernew.Find(filterOrderGross).ToListAsync();
 
-            double TP = 0;
 
-            foreach (var item in documents) // Use 'documents' instead of 'document'
+
+
+
+
+
+            var filter = Builders<Order>.Filter.Eq(t => t.ordernumber, ordernumber);
+
+          
+
+            var existingOrder = OrderCollection.Find(filter).FirstOrDefault();
+
+            if (existingOrder == null)
             {
-
-                if (item.Contains("totalprice") && item["totalprice"].IsDouble)
-                {
-                    TP += item["totalprice"].AsDouble; // Accumulate the total price
-                }
-                else
-                {
-
-                }
+                return NotFound("Order not found");
             }
 
 
-            var updategross = Builders<Gross>.Update.Set(t => t.totalGross, TP);
+            // Delete the table from the collection
+            OrderCollection.DeleteOne(filter);
+           
 
+            // Log the deletion
+            _globalService.LogAction($"Order '{ordernumber}' deleted.", "Deleted");
+
+            return Ok("Order deleted successfully");
+        }
+
+
+        public async Task updatetheGross(int grossNumber)
+        {
+            var GrossCollection = _database.GetCollection<Gross>("Gross");
+            var collectionOrdernew = _database.GetCollection<Order>("Orders"); // Use Order type instead of BsonDocument
+
+            // Filter for orders that match the grossNumber using the Order class
+            var filterOrderGross = Builders<Order>.Filter.Eq(o => o.grossNumber, grossNumber);
+            var documents = await collectionOrdernew.Find(filterOrderGross).ToListAsync();
+
+            double TP = 0; // Total price accumulator
+
+            if (documents == null)
+            {
+                TP = 0;
+            }else
+            {
+                foreach (var item in documents)
+                {
+                    // Accumulate the totalprice from each Order
+                    TP += item.totalprice;
+                }
+            }
+
+           
+
+            // Update the totalGross field in the Gross collection where status is "Pending"
+            var updategross = Builders<Gross>.Update.Set(t => t.totalGross, TP);
             var filtergross = Builders<Gross>.Filter.Eq(g => g.status, "Pending");
 
             var resultgross = await GrossCollection.UpdateOneAsync(filtergross, updategross);
-
-
         }
+
+
+
+
+
+
+
 
     }
 }

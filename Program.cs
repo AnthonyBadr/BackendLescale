@@ -11,7 +11,7 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(builder =>
     {
-        builder.WithOrigins("http://localhost", "https://localhost") // Allows any port on localhost
+        builder.WithOrigins("http://localhost:3000", "https://localhost:3001") // Allows any port on localhost
                .AllowAnyMethod()    // Allows any HTTP method (GET, POST, etc.)
                .AllowAnyHeader()    // Allows any HTTP headers
                .AllowCredentials(); // Allows credentials (optional)

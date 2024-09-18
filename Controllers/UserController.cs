@@ -22,6 +22,10 @@ namespace backend.Controllers
             _globalService = globalService;
         }
 
+
+
+        //ignore this please 
+        [HttpGet]
         public IActionResult Index()
         {
             int x = 0;
@@ -47,6 +51,24 @@ namespace backend.Controllers
         public IActionResult Error()
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        }
+
+        //use this 
+        [HttpGet("GetUser")]
+        public IActionResult GetUser()
+        {
+            int x = 0;
+            var collection = _database.GetCollection<BsonDocument>("User");
+            var documents = collection.Find(new BsonDocument()).ToList();
+
+
+
+
+            // Convert documents to JSON
+            var jsonResult = documents.Select(doc => doc.ToJson()).ToList();
+
+            // Return the data as JSON
+            return Json(jsonResult);
         }
 
         // Create a new document
