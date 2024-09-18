@@ -422,13 +422,13 @@ namespace backend.Controllers
         }
 
         //added 
-        [HttpGet("GetAllOrders")]
-        public IActionResult GetAllOrders()
+        [HttpGet("GetAllCategories")]
+        public IActionResult GetAllCategories()
         {
             try
             {
                 // Get the 'Orders' collection from the database
-                var collection = _database.GetCollection<BsonDocument>("Orders");
+                var collection = _database.GetCollection<BsonDocument>("Category");
 
                 // Find all documents in the 'Orders' collection
                 var orders = collection.Find(new BsonDocument()).ToList();
