@@ -151,6 +151,38 @@ namespace backend.Controllers
           
         }
 
+        [HttpGet("GetAllPayments")]
+        public IActionResult GetAllPayments()
+        {
+            try
+            {
+                // Get the 'User' collection from the database
+                var collection = _database.GetCollection<BsonDocument>("Payment");
+
+                // Find all documents in the 'User' collection
+                var payment = collection.Find(new BsonDocument()).ToList();
+
+                // Check if there are any users
+                if (payment == null || payment.Count == 0)
+                {
+                    return NotFound("No users found.");
+                }
+
+                // Convert BsonDocuments to dynamic objects and return them as JSON
+                var jsonUsers = payment.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
+
+                return Ok(jsonUsers);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception and return a 500 internal server error
+                _logger.LogError($"Error fetching users: {ex.Message}");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+
+
         [HttpDelete("Delete/{id}")]
         public IActionResult Delete(string id)
         {
