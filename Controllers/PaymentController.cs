@@ -52,6 +52,12 @@ namespace backend.Controllers
                 double amount = double.Parse(document["amount"].ToString());
                 // Get the 'Payment' collection and insert the new payment document
                 var collection = _database.GetCollection<BsonDocument>("Payment");
+
+                int idseq = _globalService.SequenceIncrement("Payment").GetAwaiter().GetResult();
+
+                document.Add("Id", idseq);
+
+
                 collection.InsertOne(document);
 
                 // Increment the 'grossnumber' in the 'Gross' document by 5

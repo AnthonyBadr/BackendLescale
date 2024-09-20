@@ -1,6 +1,7 @@
 ﻿using MongoDB.Driver;
 using System;
 using backend.Models;
+using MongoDB.Bson;
 
 namespace backend.Services
 {
@@ -38,5 +39,26 @@ namespace backend.Services
             // Insert the log into the collection
             logCollection.InsertOne(log);
         }
+
+        public async Task<int> SequenceIncrement(string _id)
+        {
+            var counterCollection = _database.GetCollection<BsonDocument>("Sequence");
+            var filter = Builders<BsonDocument>.Filter.Eq("_id", _id); // Use _id parameter
+            var update = Builders<BsonDocument>.Update.Inc("sequenceValue", 1);
+            var options = new FindOneAndUpdateOptions<BsonDocument>
+            {
+                ReturnDocument = ReturnDocument.After // Return the updated document
+            };
+
+            // Find and increment the sequence value
+            var counterDocument = await counterCollection.FindOneAndUpdateAsync(filter, update, options);
+            var newSequenceValue = counterDocument["sequenceValue"].AsInt32;
+
+            return newSequenceValue;
+        }
+
+
+
+
     }
 }
