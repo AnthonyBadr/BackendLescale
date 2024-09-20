@@ -7,6 +7,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Identity.Data;
 using MongoDB.Bson.Serialization.IdGenerators;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+using ZstdSharp.Unsafe;
 
 namespace backend.Controllers
 {
@@ -229,26 +230,35 @@ namespace backend.Controllers
 
 
 
-    //    {
-    //    type_of_Ingredient:
-    //        name:
-    //}
+        //    {
+        //    type_of_Ingredient:
+        //        name:
+        //        price
+        //}
         [HttpPost("UpdateASpecifiedIngredient")]
         public async Task<IActionResult> UpdateASpecifiedIngredientAsync([FromBody] JsonElement jsonElement)
         {
-            
             string type_of_Ingredient = jsonElement.GetProperty("type_of_Ingredient").GetString();
             string name = jsonElement.GetProperty("name").GetString();
+            double price = jsonElement.GetProperty("price").GetDouble();
+
             var filter = Builders<BsonDocument>.Filter.Exists($"Ingredient.{type_of_Ingredient}");
-            // Define the update to add a new sauce to the 'Sauces' array
-            var update = Builders<BsonDocument>.Update.AddToSet($"Ingredient.{type_of_Ingredient}", name);
+
+            // Define the update to add a new ingredient with both name and price
+            var newIngredient = new BsonDocument
+    {
+        { "name", name },
+        { "price", price }
+    };
+
+            var update = Builders<BsonDocument>.Update.AddToSet($"Ingredient.{type_of_Ingredient}", newIngredient);
             var collection = _database.GetCollection<BsonDocument>("Ingredients");
 
             // Update the document
             var result = await collection.UpdateOneAsync(filter, update);
 
             // Output the result
-            Console.WriteLine(result.ModifiedCount > 0 ? "Sauce added successfully!" : "No document was updated.");
+            Console.WriteLine(result.ModifiedCount > 0 ? "Ingredient added successfully!" : "No document was updated.");
 
             return Ok();
         }
@@ -260,7 +270,6 @@ namespace backend.Controllers
         [HttpPost("removeASpecifiedIngredient")]
         public async Task<IActionResult> removeASpecifiedIngredientAsync([FromBody] JsonElement jsonElement)
         {
-
             // Ensure that these properties are present in the JSON request
             if (!jsonElement.TryGetProperty("type_of_Ingredient", out JsonElement typeElement) ||
                 !jsonElement.TryGetProperty("name", out JsonElement nameElement))
@@ -270,10 +279,13 @@ namespace backend.Controllers
 
             string type_of_Ingredient = typeElement.GetString();
             string name = nameElement.GetString();
+
+            // Define a filter to find the document containing the specified ingredient type
             var filter = Builders<BsonDocument>.Filter.Exists($"Ingredient.{type_of_Ingredient}");
 
             // Define the update to remove one occurrence of the ingredient from the specified type
-            var update = Builders<BsonDocument>.Update.Pull($"Ingredient.{type_of_Ingredient}", name);
+            var update = Builders<BsonDocument>.Update.Pull($"Ingredient.{type_of_Ingredient}", new BsonDocument { { "name", name } });
+
             var collection = _database.GetCollection<BsonDocument>("Ingredients");
 
             // Update the document
@@ -284,6 +296,7 @@ namespace backend.Controllers
 
             return Ok();
         }
+
 
 
         //      {

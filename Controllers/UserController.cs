@@ -144,7 +144,7 @@ namespace backend.Controllers
             var newSequenceValue = counterDocument["sequenceValue"].AsInt32;
 
             // Add the sequence value to the new document (as a sequential 'count' field)
-            document.Add("Count", newSequenceValue);
+            document.Add("Id", newSequenceValue);
 
             // Insert the new document with the sequence value
             await collection.InsertOneAsync(document);
@@ -164,8 +164,8 @@ namespace backend.Controllers
         }
 
         // Update an existing document without touching the Count field
-        [HttpPut("Update/{Count}")]
-        public IActionResult Update(int Count, [FromBody] JsonElement jsonElement)
+        [HttpPut("Update/{Id}")]
+        public IActionResult Update(int Id, [FromBody] JsonElement jsonElement)
         {
             // Convert the JSON element to a JSON string
             string jsonString = jsonElement.GetRawText();
@@ -182,11 +182,11 @@ namespace backend.Controllers
             }
 
             // Remove the 'Count' field from the document if it exists, so it won't be updated
-            document.Remove("Count");
+            document.Remove("Id");
 
             // Get the collection and create the filter
             var collection = _database.GetCollection<BsonDocument>("User");
-            var filter = Builders<BsonDocument>.Filter.Eq("Count", Count);
+            var filter = Builders<BsonDocument>.Filter.Eq("Id", Id);
 
             // Create an update definition with the remaining fields in the document
             var updateDefinition = new BsonDocument("$set", document);
@@ -204,14 +204,14 @@ namespace backend.Controllers
 
 
         // Get a specific document by ID
-        [HttpGet("GetById/{Count}")]
-        public IActionResult GetById(int Count)
+        [HttpGet("GetById/{Id}")]
+        public IActionResult GetById(int Id)
         {
             // Ensure id is a valid ObjectId
             
             // Get the collection and create the filter
             var collection = _database.GetCollection<BsonDocument>("User");
-            var filter = Builders<BsonDocument>.Filter.Eq("Count", Count);
+            var filter = Builders<BsonDocument>.Filter.Eq("Id", Id);
 
             // Find the document
             var document = collection.Find(filter).FirstOrDefault();
@@ -256,11 +256,11 @@ namespace backend.Controllers
 
 
         // Delete a document
-        [HttpDelete("Delete/{Count}")]
-        public IActionResult Delete(int Count)
+        [HttpDelete("Delete/{Id}")]
+        public IActionResult Delete(int Id)
         {
             var collection = _database.GetCollection<BsonDocument>("User");
-            var filter = Builders<BsonDocument>.Filter.Eq("Count", Count);
+            var filter = Builders<BsonDocument>.Filter.Eq("Id", Id);
             var deleteResult = collection.DeleteOne(filter);
 
             if (deleteResult.DeletedCount == 0)

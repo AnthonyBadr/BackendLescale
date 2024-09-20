@@ -33,5 +33,7 @@ namespace backend.Models
 
         public string Created_by {  get; set; }
 
+        public int quantity { get; set; }
+
     }
 }

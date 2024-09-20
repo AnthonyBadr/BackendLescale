@@ -9,6 +9,6 @@ namespace backend.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; }
         public string Ingredientcategory { get; set; }
-        public List<string> Items = new List<string>();
+        public List<ItemIng> Items = new List<ItemIng>();
     }
 }

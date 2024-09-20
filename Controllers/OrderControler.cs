@@ -211,28 +211,59 @@ namespace backend.Controllers
         private double CalculateTotalPrice(JsonElement jsonElement, string stype)
         {
             double total = 0;
+   
             if (stype=="Dine in")
             {
-               
+
                 if (jsonElement.TryGetProperty("items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
                 {
                     foreach (JsonElement item in itemsElement.EnumerateArray())
                     {
+                        // Get the main item's price
                         if (item.TryGetProperty("price", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
                         {
-                            total += price;
+                            total += price; // Add main item price to total
+                        }
+
+                        // Check for addons and sum their prices
+                        if (item.TryGetProperty("Addons", out JsonElement addonsElement) && addonsElement.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (JsonElement addon in addonsElement.EnumerateArray())
+                            {
+                                if (addon.TryGetProperty("price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
+                                {
+                                    total += addonPrice; // Add addon price to total
+                                    int x = 0;
+                                }
+                            }
                         }
                     }
                 }
-            }else if (stype == "Delivery")
+
+            }
+            else if (stype == "Delivery")
             {
                 if (jsonElement.TryGetProperty("items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
                 {
                     foreach (JsonElement item in itemsElement.EnumerateArray())
                     {
+                        // Get the main item's price
                         if (item.TryGetProperty("pricedel", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
                         {
-                            total += price;
+                            total += price; // Add main item price to total
+                        }
+
+                        // Check for addons and sum their prices
+                        if (item.TryGetProperty("Addons", out JsonElement addonsElement) && addonsElement.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (JsonElement addon in addonsElement.EnumerateArray())
+                            {
+                                if (addon.TryGetProperty("price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
+                                {
+                                    total += addonPrice; // Add addon price to total
+                                    int x = 0;
+                                }
+                            }
                         }
                     }
                 }
