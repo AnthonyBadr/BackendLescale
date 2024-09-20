@@ -169,7 +169,11 @@ namespace backend.Controllers
             double totalPrice = CalculateTotalPrice(jsonElement ,stype);
 
             document["totalprice"] = totalPrice;
-      
+
+
+            document.Add("Created_by", _globalService.username);
+
+
             await collection.InsertOneAsync(document);
 
          

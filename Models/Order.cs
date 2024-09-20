@@ -31,5 +31,7 @@ namespace backend.Models
         public string location { get; set; }
 
 
+        public string Created_by {  get; set; }
+
     }
 }
