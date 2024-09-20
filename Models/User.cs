@@ -13,6 +13,8 @@ namespace backend.Models
 
        public string role { get; set; }
 
+        public int Count { get; set; }
+
     }
 }
 

@@ -97,9 +97,27 @@ namespace backend.Controllers
             }
         }
 
-        // Create a new document
+        //// Create a new document
+        //[HttpPost("Create")]
+        //public IActionResult Create([FromBody] JsonElement jsonElement)
+        //{
+        //    // Convert the JSON element to a JSON string
+        //    string jsonString = jsonElement.GetRawText();
+
+        //    // Parse the JSON string to a BsonDocument
+        //    BsonDocument document = BsonDocument.Parse(jsonString);
+
+        //    // Get the collection and insert the document
+        //    var collection = _database.GetCollection<BsonDocument>("User");
+        //    collection.InsertOne(document);
+
+        //    return Ok();
+        //}
+
+
+        // Create a new document with a sequential ID
         [HttpPost("Create")]
-        public IActionResult Create([FromBody] JsonElement jsonElement)
+        public async Task<IActionResult> Create([FromBody] JsonElement jsonElement)
         {
             // Convert the JSON element to a JSON string
             string jsonString = jsonElement.GetRawText();
@@ -107,12 +125,34 @@ namespace backend.Controllers
             // Parse the JSON string to a BsonDocument
             BsonDocument document = BsonDocument.Parse(jsonString);
 
-            // Get the collection and insert the document
+            // Get the collection for the items
             var collection = _database.GetCollection<BsonDocument>("User");
-            collection.InsertOne(document);
+
+            // Get the collection for the sequence counter
+            var counterCollection = _database.GetCollection<BsonDocument>("Sequence");
+
+            // Increment the sequence value and retrieve the new value
+            var filter = Builders<BsonDocument>.Filter.Eq("_id", "UserId");
+            var update = Builders<BsonDocument>.Update.Inc("sequenceValue", 1);
+            var options = new FindOneAndUpdateOptions<BsonDocument>
+            {
+                ReturnDocument = ReturnDocument.After // Return the updated document
+            };
+
+            // Find and increment the sequence value
+            var counterDocument = await counterCollection.FindOneAndUpdateAsync(filter, update, options);
+            var newSequenceValue = counterDocument["sequenceValue"].AsInt32;
+
+            // Add the sequence value to the new document (as a sequential 'count' field)
+            document.Add("Count", newSequenceValue);
+
+            // Insert the new document with the sequence value
+            await collection.InsertOneAsync(document);
 
             return Ok();
         }
+
+
 
         [HttpGet]
         public IActionResult Hello()
@@ -123,10 +163,9 @@ namespace backend.Controllers
             return Ok();
         }
 
-
-        // Update an existing document
-        [HttpPut("Update/{id}")]
-        public IActionResult Update(string id, [FromBody] JsonElement jsonElement)
+        // Update an existing document without touching the Count field
+        [HttpPut("Update/{Count}")]
+        public IActionResult Update(int Count, [FromBody] JsonElement jsonElement)
         {
             // Convert the JSON element to a JSON string
             string jsonString = jsonElement.GetRawText();
@@ -142,18 +181,18 @@ namespace backend.Controllers
                 return BadRequest($"Invalid JSON format: {ex.Message}");
             }
 
-            // Ensure id is a valid ObjectId
-            if (!ObjectId.TryParse(id, out var objectId))
-            {
-                return BadRequest("Invalid ID format.");
-            }
+            // Remove the 'Count' field from the document if it exists, so it won't be updated
+            document.Remove("Count");
 
             // Get the collection and create the filter
             var collection = _database.GetCollection<BsonDocument>("User");
-            var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+            var filter = Builders<BsonDocument>.Filter.Eq("Count", Count);
 
-            // Replace the document
-            var updateResult = collection.ReplaceOne(filter, document);
+            // Create an update definition with the remaining fields in the document
+            var updateDefinition = new BsonDocument("$set", document);
+
+            // Update the document, keeping the 'Count' field unchanged
+            var updateResult = collection.UpdateOne(filter, updateDefinition);
 
             if (updateResult.MatchedCount == 0)
             {
@@ -165,18 +204,14 @@ namespace backend.Controllers
 
 
         // Get a specific document by ID
-        [HttpGet("GetById/{id}")]
-        public IActionResult GetById(string id)
+        [HttpGet("GetById/{Count}")]
+        public IActionResult GetById(int Count)
         {
             // Ensure id is a valid ObjectId
-            if (!ObjectId.TryParse(id, out var objectId))
-            {
-                return BadRequest("Invalid ID format.");
-            }
-
+            
             // Get the collection and create the filter
             var collection = _database.GetCollection<BsonDocument>("User");
-            var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+            var filter = Builders<BsonDocument>.Filter.Eq("Count", Count);
 
             // Find the document
             var document = collection.Find(filter).FirstOrDefault();
@@ -221,11 +256,11 @@ namespace backend.Controllers
 
 
         // Delete a document
-        [HttpDelete("Delete/{id}")]
-        public IActionResult Delete(string id)
+        [HttpDelete("Delete/{Count}")]
+        public IActionResult Delete(int Count)
         {
             var collection = _database.GetCollection<BsonDocument>("User");
-            var filter = Builders<BsonDocument>.Filter.Eq("_id", new ObjectId(id));
+            var filter = Builders<BsonDocument>.Filter.Eq("Count", Count);
             var deleteResult = collection.DeleteOne(filter);
 
             if (deleteResult.DeletedCount == 0)
