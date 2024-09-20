@@ -6,6 +6,8 @@ using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.AspNetCore.Identity.Data;
 using backend.Services;
+using System.Text;
+using System.Security.Cryptography;
 
 namespace backend.Controllers
 {
@@ -22,39 +24,6 @@ namespace backend.Controllers
             _globalService = globalService;
         }
 
-
-
-        [HttpGet]
-        public IActionResult Index()
-        {
-            try
-            {
-                // Get the 'User' collection from the database
-                var collection = _database.GetCollection<BsonDocument>("User");
-
-                // Find all documents in the 'User' collection
-                var users = collection.Find(new BsonDocument()).ToList();
-
-                // Check if there are any users
-                if (users == null || users.Count == 0)
-                {
-                    return NotFound("No users found.");
-                }
-
-                // Convert BsonDocuments to dynamic objects and return them as JSON
-                var jsonUsers = users.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
-
-                return Ok(jsonUsers);
-            }
-            catch (Exception ex)
-            {
-                // Log the exception and return a 500 internal server error
-                _logger.LogError($"Error fetching users: {ex.Message}");
-                return StatusCode(500, "Internal server error");
-            }
-        }
-
-
         public IActionResult Privacy()
         {
             return View();
@@ -67,8 +36,8 @@ namespace backend.Controllers
         }
 
         //use this 
-        [HttpGet("GetUser")]
-        public IActionResult GetUser()
+        [HttpGet("GetAllUsers")]
+        public IActionResult GetAllUsers()
         {
             try
             {
@@ -97,75 +66,59 @@ namespace backend.Controllers
             }
         }
 
-        //// Create a new document
-        //[HttpPost("Create")]
-        //public IActionResult Create([FromBody] JsonElement jsonElement)
-        //{
-        //    // Convert the JSON element to a JSON string
-        //    string jsonString = jsonElement.GetRawText();
-
-        //    // Parse the JSON string to a BsonDocument
-        //    BsonDocument document = BsonDocument.Parse(jsonString);
-
-        //    // Get the collection and insert the document
-        //    var collection = _database.GetCollection<BsonDocument>("User");
-        //    collection.InsertOne(document);
-
-        //    return Ok();
-        //}
-
-
+   
         // Create a new document with a sequential ID
-        [HttpPost("Create")]
+        [HttpPost("CreateUser")]
         public async Task<IActionResult> Create([FromBody] JsonElement jsonElement)
         {
-            // Convert the JSON element to a JSON string
-            string jsonString = jsonElement.GetRawText();
-
-            // Parse the JSON string to a BsonDocument
-            BsonDocument document = BsonDocument.Parse(jsonString);
-
-            // Get the collection for the items
-            var collection = _database.GetCollection<BsonDocument>("User");
-
-            // Get the collection for the sequence counter
-            var counterCollection = _database.GetCollection<BsonDocument>("Sequence");
-
-            // Increment the sequence value and retrieve the new value
-            var filter = Builders<BsonDocument>.Filter.Eq("_id", "UserId");
-            var update = Builders<BsonDocument>.Update.Inc("sequenceValue", 1);
-            var options = new FindOneAndUpdateOptions<BsonDocument>
+            try
             {
-                ReturnDocument = ReturnDocument.After // Return the updated document
-            };
+                // Parse the JSON element
+                var document = BsonDocument.Parse(jsonElement.ToString());
 
-            // Find and increment the sequence value
-            var counterDocument = await counterCollection.FindOneAndUpdateAsync(filter, update, options);
-            var newSequenceValue = counterDocument["sequenceValue"].AsInt32;
+                // Extract the password
+                if (document.TryGetValue("Pin", out BsonValue passwordValue))
+                {
+                    string password = passwordValue.AsString;
 
-            // Add the sequence value to the new document (as a sequential 'count' field)
-            document.Add("Id", newSequenceValue);
+                    // Hash the password using SHA-256
+                    using (SHA256 sha256Hash = SHA256.Create())
+                    {
+                        byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(password));
+                        StringBuilder builder = new StringBuilder();
+                        for (int i = 0; i < bytes.Length; i++)
+                        {
+                            builder.Append(bytes[i].ToString("x2"));
+                        }
+                        string hashedPassword = builder.ToString();
 
-            // Insert the new document with the sequence value
-            await collection.InsertOneAsync(document);
+                        // Replace the password in the document with the hashed password
+                        document.Set("Pin", hashedPassword);
+                    }
+                }
 
-            return Ok();
+                // Add a new sequence value for the user ID
+                int newSequenceValue = _globalService.SequenceIncrement("UserId").GetAwaiter().GetResult();
+                document.Add("Id", newSequenceValue);
+
+                // Insert the document into the collection
+                var collection = _database.GetCollection<BsonDocument>("User");
+                await collection.InsertOneAsync(document);
+
+                return Ok(new { Id = newSequenceValue, Message = "User created successfully." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error: {ex.Message}");
+            }
         }
 
 
 
-        [HttpGet]
-        public IActionResult Hello()
-        {
-            // Convert the JSON element to a JSON string
-           
-
-            return Ok();
-        }
 
         // Update an existing document without touching the Count field
-        [HttpPut("Update/{Id}")]
-        public IActionResult Update(int Id, [FromBody] JsonElement jsonElement)
+        [HttpPut("UpdateUserById/{Id}")]
+        public IActionResult UpdateUserById(int Id, [FromBody] JsonElement jsonElement)
         {
             // Convert the JSON element to a JSON string
             string jsonString = jsonElement.GetRawText();
@@ -181,8 +134,29 @@ namespace backend.Controllers
                 return BadRequest($"Invalid JSON format: {ex.Message}");
             }
 
-            // Remove the 'Count' field from the document if it exists, so it won't be updated
+            // Remove the 'Id' field from the document if it exists, so it won't be updated
             document.Remove("Id");
+
+            // Check if the document contains a password field and hash it
+            if (document.Contains("Pin"))
+            {
+                string pin = document["Pin"].AsString;
+
+                // Hash the password using SHA-256
+                using (SHA256 sha256Hash = SHA256.Create())
+                {
+                    byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(pin));
+                    StringBuilder builder = new StringBuilder();
+                    for (int i = 0; i < bytes.Length; i++)
+                    {
+                        builder.Append(bytes[i].ToString("x2"));
+                    }
+                    string hashedPin = builder.ToString();
+
+                    // Replace the password in the document with the hashed password
+                    document.Set("Pin", hashedPin);
+                }
+            }
 
             // Get the collection and create the filter
             var collection = _database.GetCollection<BsonDocument>("User");
@@ -204,11 +178,9 @@ namespace backend.Controllers
 
 
         // Get a specific document by ID
-        [HttpGet("GetById/{Id}")]
-        public IActionResult GetById(int Id)
+        [HttpGet("GetUserById/{Id}")]
+        public IActionResult GetUserById(int Id)
         {
-            // Ensure id is a valid ObjectId
-            
             // Get the collection and create the filter
             var collection = _database.GetCollection<BsonDocument>("User");
             var filter = Builders<BsonDocument>.Filter.Eq("Id", Id);
@@ -218,46 +190,20 @@ namespace backend.Controllers
 
             if (document == null)
             {
-                return NotFound("Document not found.");
+                return NotFound(new { Message = "Document not found." });
             }
 
-            // Return the document as JSON
-            return Json(document.ToJson());
+            // Return the document as a JSON object
+            return Ok(MongoDB.Bson.BsonTypeMapper.MapToDotNetValue(document));
         }
 
 
-        [HttpPost("login")]
-        public IActionResult Login([FromBody] Login loginRequest)
-        {
-            // Check if the request body is null
-            if (loginRequest == null)
-            {
-                return BadRequest("Invalid login request.");
-            }
-
-            // Get the collection from the database
-                var collection = _database.GetCollection<User>("User");
-            var filter = Builders<User>.Filter.And(
-                Builders<User>.Filter.Eq("username", loginRequest.Username),
-                Builders<User>.Filter.Eq("pin", loginRequest.Pin)
-            );
-            var user = collection.Find(filter).FirstOrDefault();
-
-            if (user == null)
-            {
-                return NotFound("No matching documents found.");
-            }
-            _globalService.username = user.username;
-
-            // Return the matching user
-            return Ok(user);
-        }
 
 
 
         // Delete a document
-        [HttpDelete("Delete/{Id}")]
-        public IActionResult Delete(int Id)
+        [HttpDelete("DeleteUserByUser/{Id}")]
+        public IActionResult DeleteUserByUser(int Id)
         {
             var collection = _database.GetCollection<BsonDocument>("User");
             var filter = Builders<BsonDocument>.Filter.Eq("Id", Id);
