@@ -75,8 +75,8 @@ namespace backend.Controllers
     //"Dairy": []
     //}
 
-    [HttpDelete("Remove")]
-        public async Task<IActionResult> Remove([FromBody] JsonElement jsonElement)
+    [HttpDelete("RemoveACategory")]
+        public async Task<IActionResult> RemoveACategory([FromBody] JsonElement jsonElement)
         {
             if (jsonElement.ValueKind == JsonValueKind.Object)
             {
@@ -91,7 +91,7 @@ namespace backend.Controllers
                     var collection = _database.GetCollection<BsonDocument>("Ingredients");
 
                     // Create a filter to find documents with the specified variable name
-                    var filter = Builders<BsonDocument>.Filter.Exists($"Ingredients.{variableName}");
+                    var filter = Builders<BsonDocument>.Filter.Exists($"Ingredient.{variableName}");
 
                     // Delete the document
                     var deleteResult = await collection.DeleteManyAsync(filter);
@@ -132,25 +132,38 @@ namespace backend.Controllers
                     string oldKey = oldKeyElement.GetString();
                     string newKey = newKeyElement.GetString();
 
-                    // Get the collection
-                    var collection = _database.GetCollection<BsonDocument>("Ingredients");
-
-                    // Create an update filter to match documents containing the old key
-                    var filter = Builders<BsonDocument>.Filter.Exists($"Ingredient.{oldKey}");
-
-                    // Create an update definition to rename the old key to the new key
-                    var update = Builders<BsonDocument>.Update.Rename($"Ingredient.{oldKey}", $"Ingredient.{newKey}");
-
-                    // Perform the update
-                    var updateResult = await collection.UpdateManyAsync(filter, update);
-
-                    if (updateResult.ModifiedCount > 0)
+                    if (string.IsNullOrEmpty(oldKey) || string.IsNullOrEmpty(newKey))
                     {
-                        return Ok($"Key '{oldKey}' has been updated to '{newKey}' in {updateResult.ModifiedCount} document(s).");
+                        return BadRequest("OldKey and NewKey cannot be null or empty.");
                     }
-                    else
+
+                    try
                     {
-                        return NotFound($"No documents found with the key '{oldKey}'.");
+                        // Get the collection
+                        var collection = _database.GetCollection<BsonDocument>("Ingredients");
+
+                        // Create an update filter to match documents containing the old key
+                        var filter = Builders<BsonDocument>.Filter.Exists($"Ingredient.{oldKey}");
+
+                        // Create an update definition to rename the old key to the new key
+                        var update = Builders<BsonDocument>.Update.Rename($"Ingredient.{oldKey}", $"Ingredient.{newKey}");
+
+                        // Perform the update
+                        var updateResult = await collection.UpdateManyAsync(filter, update);
+
+                        if (updateResult.ModifiedCount > 0)
+                        {
+                            return Ok($"Key '{oldKey}' has been updated to '{newKey}' in {updateResult.ModifiedCount} document(s).");
+                        }
+                        else
+                        {
+                            return NotFound($"No documents found with the key '{oldKey}'.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log the exception (you can use a logging framework)
+                        return StatusCode(500, $"Internal server error: {ex.Message}");
                     }
                 }
                 else
@@ -166,15 +179,10 @@ namespace backend.Controllers
 
 
 
-        //        {
-        //  "Ingredient": {
-        //    "Dairy": ["cheese", "milk"]
-        //    }
-        //}
 
 
-        [HttpPost("Create")]
-        public async Task<IActionResult> Create([FromBody] JsonElement jsonElement)
+        [HttpPost("CreateIngredient")]
+        public async Task<IActionResult> CreateIngredient([FromBody] JsonElement jsonElement)
         {
             if (jsonElement.ValueKind == JsonValueKind.Object)
             {
@@ -198,7 +206,7 @@ namespace backend.Controllers
                         var collection = _database.GetCollection<BsonDocument>("Ingredients");
 
                         // Check if the ingredient type already exists
-                        var filter = Builders<BsonDocument>.Filter.Exists($"Ingredients.{typeOfIngredient}");
+                        var filter = Builders<BsonDocument>.Filter.Exists($"Ingredient.{typeOfIngredient}");
                         var existingDocument = await collection.Find(filter).FirstOrDefaultAsync();
 
                         if (existingDocument != null)
@@ -235,20 +243,20 @@ namespace backend.Controllers
         //        name:
         //        price
         //}
-        [HttpPost("UpdateASpecifiedIngredient")]
-        public async Task<IActionResult> UpdateASpecifiedIngredientAsync([FromBody] JsonElement jsonElement)
+        [HttpPost("AddanIngredientToALiSt")]
+        public async Task<IActionResult> AddanIngredientToALiSt([FromBody] JsonElement jsonElement)
         {
             string type_of_Ingredient = jsonElement.GetProperty("type_of_Ingredient").GetString();
-            string name = jsonElement.GetProperty("name").GetString();
-            double price = jsonElement.GetProperty("price").GetDouble();
+            string name = jsonElement.GetProperty("Name").GetString();
+            double price = jsonElement.GetProperty("Price").GetDouble();
 
             var filter = Builders<BsonDocument>.Filter.Exists($"Ingredient.{type_of_Ingredient}");
 
             // Define the update to add a new ingredient with both name and price
             var newIngredient = new BsonDocument
     {
-        { "name", name },
-        { "price", price }
+        { "Name", name },
+        { "Price", price }
     };
 
             var update = Builders<BsonDocument>.Update.AddToSet($"Ingredient.{type_of_Ingredient}", newIngredient);
@@ -267,12 +275,12 @@ namespace backend.Controllers
         //    type_of_Ingredient:
         //        name:
         //}
-        [HttpPost("removeASpecifiedIngredient")]
-        public async Task<IActionResult> removeASpecifiedIngredientAsync([FromBody] JsonElement jsonElement)
+        [HttpPost("removeASpecifiedIngredientFromTheList")]
+        public async Task<IActionResult> removeASpecifiedIngredientFromTheList([FromBody] JsonElement jsonElement)
         {
             // Ensure that these properties are present in the JSON request
             if (!jsonElement.TryGetProperty("type_of_Ingredient", out JsonElement typeElement) ||
-                !jsonElement.TryGetProperty("name", out JsonElement nameElement))
+                !jsonElement.TryGetProperty("Name", out JsonElement nameElement))
             {
                 return BadRequest("Invalid input.");
             }
@@ -284,7 +292,7 @@ namespace backend.Controllers
             var filter = Builders<BsonDocument>.Filter.Exists($"Ingredient.{type_of_Ingredient}");
 
             // Define the update to remove one occurrence of the ingredient from the specified type
-            var update = Builders<BsonDocument>.Update.Pull($"Ingredient.{type_of_Ingredient}", new BsonDocument { { "name", name } });
+            var update = Builders<BsonDocument>.Update.Pull($"Ingredient.{type_of_Ingredient}", new BsonDocument { { "Name", name } });
 
             var collection = _database.GetCollection<BsonDocument>("Ingredients");
 

@@ -22,49 +22,71 @@ namespace backend.Controllers
             _database = database;
             _globalService = globalService;
         }
-        public IActionResult Index()
+
+
+
+
+
+        [HttpGet("GetPaymentByPaymentNumber/{paymentNumber}")]
+        public async Task<IActionResult> GetOrderByOrderNumber(int paymentNumber)
         {
-            return View();
+            var collection = _database.GetCollection<BsonDocument>("Payment");
+
+            // Create a filter to find the order with the specified OrderNumber
+            var filter = Builders<BsonDocument>.Filter.Eq("PaymentNumber", paymentNumber);
+
+            // Find the order in the collection
+            var paymentDocument = await collection.Find(filter).FirstOrDefaultAsync();
+            var document = BsonTypeMapper.MapToDotNetValue(paymentDocument);
+            if (paymentDocument == null)
+            {
+                // Return a 404 if the order is not found
+                return NotFound($"Order with OrderNumber {paymentNumber} not found.");
+            }
+
+            // Return the found order
+            return Json(document);
         }
 
-        [HttpPost("Create")]
-        public IActionResult Create([FromBody] JsonElement jsonElement)
+
+
+        [HttpGet("GetAllPayment")]
+        public async Task<IActionResult> GetAllPayment()
+        {
+            var collection = _database.GetCollection<BsonDocument>("Payment");
+            var documents = await collection.Find(new BsonDocument()).ToListAsync();
+
+            // Convert documents to a list of JSON objects
+            var jsonResult = documents.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
+
+            // Return the data as JSON
+            return Json(jsonResult);
+        }
+
+
+        [HttpPost("CreatePayment")]
+        public async  Task<IActionResult> Create([FromBody] JsonElement jsonElement)
         {
             try
             {
                 // Convert the JSON element to a JSON string
+                int GrossNumber = 0;
                 string jsonString = jsonElement.GetRawText();
-                var GrossCollection = _database.GetCollection<Gross>("Gross");
+                var GrossCollection = _database.GetCollection<BsonDocument>("Payment");
+                BsonDocument document = BsonDocument.Parse(jsonString);
+
+                GrossNumber = UpdateTheGrossNew(-document["Amount"].AsDouble).Result;
+
+                int newSequenceValue = _globalService.SequenceIncrement("PaymentNumber").GetAwaiter().GetResult();
+                document.Add("PaymentNumber", newSequenceValue);
+                document.Add("Created_by", _globalService.username);
+                document.Add("DateOfPayment", DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"));
+                document.Add("GrossNumber", GrossNumber);
+                await GrossCollection.InsertOneAsync(document);
+                return Ok(new { message = "Order created successfully", PaymentNumber = newSequenceValue.ToString(), document["Amount"].AsDouble });
 
                 // Find the first 'Gross' document with a status of 'Pending'
-                var filtergross = Builders<Gross>.Filter.Eq(g => g.status, "Pending");
-                var theGross = GrossCollection.Find(filtergross).FirstOrDefault();
 
-                if (theGross == null)
-                {
-                    return NotFound("No 'Gross' document with 'Pending' status found.");
-                }
-
-                // Parse the JSON string to a BsonDocument
-                BsonDocument document = BsonDocument.Parse(jsonString);
-                document["date"] = DateTime.Now.ToString("MM/dd/yyyy");
-                document["grossnumber"] = theGross.grossNumber; // Assuming 'grossnumber' exists in Gross
-                double amount = double.Parse(document["amount"].ToString());
-                // Get the 'Payment' collection and insert the new payment document
-                var collection = _database.GetCollection<BsonDocument>("Payment");
-
-                int idseq = _globalService.SequenceIncrement("Payment").GetAwaiter().GetResult();
-
-                document.Add("Id", idseq);
-
-
-                collection.InsertOne(document);
-
-                // Increment the 'grossnumber' in the 'Gross' document by 5
-                var update = Builders<Gross>.Update.Inc(g => g.totalGross, -amount);
-                GrossCollection.UpdateOne(filtergross, update);
-
-                return Ok("Payment created and gross number updated.");
             }
             catch (Exception ex)
             {
@@ -75,169 +97,138 @@ namespace backend.Controllers
 
 
 
-
-        [HttpPut("Update/{id}")]
-        public IActionResult Update(string id, [FromBody] JsonElement jsonElement)
+        [HttpPut("UpdatePaymentByPaymentNumber/{paymentNumber}")]
+        public async Task<IActionResult> UpdatePaymentByPaymentNumber(int paymentNumber, [FromBody] JsonElement jsonElement)
         {
-
-            var GrossCollection = _database.GetCollection<Gross>("Gross");
-
-            // Find the first 'Gross' document with a status of 'Pending'
-            var filtergross = Builders<Gross>.Filter.Eq(g => g.status, "Pending");
-            var theGross = GrossCollection.Find(filtergross).FirstOrDefault();
-            if (theGross == null)
-            {
-                return NotFound("No 'Gross' document with 'Pending' status found.");
-            }
-
-            // Convert the JSON element to a JSON string
             string jsonString = jsonElement.GetRawText();
-
-            // Parse the JSON string to a BsonDocument
-            BsonDocument document;
-            try
-            {
-                document = BsonDocument.Parse(jsonString);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest($"Invalid JSON format: {ex.Message}");
-            }
-
-
-            double amount = double.Parse(document["amount"].ToString());
-
-            if(amount > 0)
-            {
-                UpdateGross(amount);
-            }
-            else
-            {
-                UpdateGross(-amount);
-            }
-
-
-            // Ensure id is a valid ObjectId
-            if (!ObjectId.TryParse(id, out var objectId))
-            {
-                return BadRequest("Invalid ID format.");
-            }
-
-            // Get the collection and create the filter
+            BsonDocument document = BsonDocument.Parse(jsonString);
             var collection = _database.GetCollection<BsonDocument>("Payment");
-            var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+            double AmountOld = 0;
+            double AmountNew = 0;
+            int GrossNumber = 0;
 
-            // Replace the document
-            var updateResult = collection.ReplaceOne(filter, document);
+            // Create a filter to find the order with the specified OrderNumber
+            var filter = Builders<BsonDocument>.Filter.Eq("PaymentNumber", paymentNumber);
 
-            
-          
+            // Find the order in the collection
+            var paymentDocument = await collection.Find(filter).FirstOrDefaultAsync();
 
-
-            if (updateResult.MatchedCount == 0)
+            if (paymentDocument == null)
             {
-                return NotFound("Document not found.");
+                // Return a 404 if the payment is not found
+                return NotFound($"Payment with PaymentNumber {paymentNumber} not found.");
             }
 
-            return Ok("Document updated successfully.");
-        }
+            // Get the old amount and the new amount from the request body
+            AmountOld = paymentDocument.GetValue("Amount").AsDouble;
+            AmountNew = document["Amount"].AsDouble;
 
-        private void UpdateGross(double amount)
-        {
+            // Update the gross value by subtracting the old amount and adding the new amount
+            GrossNumber = await UpdateTheGrossNew(+AmountOld);
+            GrossNumber = await UpdateTheGrossNew(-AmountNew);
 
-            var GrossCollection = _database.GetCollection<Gross>("Gross");
+            // Prepare the update for the payment document in the collection
+            var update = Builders<BsonDocument>.Update
+                .Set("Amount", AmountNew)
+                .Set("DateOfPayment", DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss")) // Update payment date if needed
+                .Set("GrossNumber", GrossNumber); // Update GrossNumber if needed
 
-            // Find the first 'Gross' document with a status of 'Pending'
-            var filtergross = Builders<Gross>.Filter.Eq(g => g.status, "Pending");
-            var theGross = GrossCollection.Find(filtergross).FirstOrDefault();
-            // Increment the 'grossnumber' in the 'Gross' document by 5
-            var update = Builders<Gross>.Update.Inc(g => g.totalGross, -amount);
-            GrossCollection.UpdateOne(filtergross, update);
+            // Apply the update to the document in the collection
+            var updateResult = await collection.UpdateOneAsync(filter, update);
 
-          
-        }
-
-        [HttpGet("GetAllPayments")]
-        public IActionResult GetAllPayments()
-        {
-            try
+            if (updateResult.ModifiedCount == 0)
             {
-                // Get the 'User' collection from the database
-                var collection = _database.GetCollection<BsonDocument>("Payment");
-
-                // Find all documents in the 'User' collection
-                var payment = collection.Find(new BsonDocument()).ToList();
-
-                // Check if there are any users
-                if (payment == null || payment.Count == 0)
-                {
-                    return NotFound("No users found.");
-                }
-
-                // Convert BsonDocuments to dynamic objects and return them as JSON
-                var jsonUsers = payment.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
-
-                return Ok(jsonUsers);
+                return BadRequest("Failed to update the payment.");
             }
-            catch (Exception ex)
-            {
-                // Log the exception and return a 500 internal server error
-                _logger.LogError($"Error fetching users: {ex.Message}");
-                return StatusCode(500, "Internal server error");
-            }
+
+            // Return success response
+            return Ok(new { message = "Payment updated successfully", PaymentNumber = paymentNumber, NewAmount = AmountNew });
         }
 
 
 
-        [HttpDelete("Delete/{id}")]
-        public IActionResult Delete(string id)
-        {
-
-            var GrossCollection = _database.GetCollection<Gross>("Gross");
 
 
-            double paymentAmount = 0;
-            // Find the first 'Gross' document with a status of 'Pending'
-            var filtergross = Builders<Gross>.Filter.Eq(g => g.status, "Pending");
-            var theGross = GrossCollection.Find(filtergross).FirstOrDefault();
-            if (theGross == null)
-            {
-                return NotFound("No 'Gross' document with 'Pending' status found.");
-            }
-            var collection = _database.GetCollection<BsonDocument>("Payment");
-            var filter = Builders<BsonDocument>.Filter.Eq("_id", new ObjectId(id));
-            var payment = collection.Find(filter).FirstOrDefault();
+
+
+[HttpDelete("DeletePaymentBYPaymentNumber/{paymentNumber}")]
+public IActionResult Delete(int paymentNumber)
+{
+
+    var GrossCollection = _database.GetCollection<BsonDocument>("Gross");
+
+
+    double paymentAmount = 0;
+ 
+ 
+    var collection = _database.GetCollection<BsonDocument>("Payment");
+    var filter = Builders<BsonDocument>.Filter.Eq("PaymentNumber", paymentNumber);
+    var payment = collection.Find(filter).FirstOrDefault();
 
             if (payment != null)
-            {
-                 paymentAmount = payment["amount"].AsDouble;
+    {
+         paymentAmount = payment["Amount"].AsDouble;
+                UpdateTheGrossNew(-paymentAmount);
+
                 Console.WriteLine($"Payment amount: {paymentAmount}");
-            }
-            else
+    }
+    else
+    {
+        Console.WriteLine("Payment not found.");
+    }
+
+    var deleteResult = collection.DeleteOne(filter);
+
+    if (deleteResult.DeletedCount == 0)
+    {
+        return NotFound();
+    }
+
+    return Ok();
+}
+
+
+
+
+        public async Task<int> UpdateTheGrossNew(double amount)
+        {
+            var grossCollection = _database.GetCollection<BsonDocument>("Gross");
+
+            var filterGross = Builders<BsonDocument>.Filter.Eq("Status", "Open");
+            var theGross = await grossCollection.Find(filterGross).FirstOrDefaultAsync();
+
+            if (theGross == null)
             {
-                Console.WriteLine("Payment not found.");
+                throw new Exception("Start your day please.");
             }
 
-            var deleteResult = collection.DeleteOne(filter);
-
-            if (deleteResult.DeletedCount == 0)
+            if (!theGross.Contains("GrossNumber"))
             {
-                return NotFound();
+                throw new Exception("GrossNumber field is missing in the document.");
             }
-         
 
-            if (paymentAmount > 0)
+            int grossNumber = theGross["GrossNumber"].AsInt32;
+
+            // Debug statement to log the document found by the filter
+            Console.WriteLine(theGross.ToJson());
+
+            var update = Builders<BsonDocument>.Update.Inc("TotalGross", amount);
+            var updateResult = await grossCollection.UpdateOneAsync(filterGross, update);
+
+            // Debug statement to log the update result
+            Console.WriteLine($"Matched Count: {updateResult.MatchedCount}, Modified Count: {updateResult.ModifiedCount}");
+
+            if (updateResult.ModifiedCount == 0)
             {
-                UpdateGross(paymentAmount);
-            }
-            else
-            {
-                UpdateGross(-paymentAmount);
+                throw new Exception("No updates were made to the gross document.");
             }
 
-
-            return Ok();
+            return grossNumber;
         }
+
+
+
+
 
 
 

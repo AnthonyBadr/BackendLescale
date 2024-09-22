@@ -13,224 +13,310 @@ using System.Text.RegularExpressions;
 
 namespace backend.Controllers
 {
-    [Route("api/[controller]")]
-    public class OrderController : Controller
-    {
-        private readonly ILogger<OrderController> _logger;
-        private readonly IMongoDatabase _database;
-        private readonly GlobalService _globalService;
-        public OrderController(ILogger<OrderController> logger, IMongoDatabase database, GlobalService globalService)
-        {
-            _logger = logger;
-            _database = database;
-            _globalService = globalService;
-        }
-   //ignore
-        public IActionResult Index()
-        {
-            int x = 0;
-            var collection = _database.GetCollection<BsonDocument>("Order");
-            var documents = collection.Find(new BsonDocument()).ToList();
+    
+   [Route("api/[controller]")]
+   public class OrderController : Controller
+   {
+       private readonly ILogger<OrderController> _logger;
+       private readonly IMongoDatabase _database;
+       private readonly GlobalService _globalService;
+       public OrderController(ILogger<OrderController> logger, IMongoDatabase database, GlobalService globalService)
+       {
+           _logger = logger;
+           _database = database;
+           _globalService = globalService;
+       }
 
-            // Convert documents to JSON
-            var jsonResult = documents.Select(doc => doc.ToJson()).ToList();
 
-            // Return the data as JSON
-            return Json(jsonResult);
-        }
 
-        [HttpGet("GetAllOrders")]
-
-        public IActionResult GetAllOrders()
+        [HttpGet("GetOrderByOrderNumber/{orderNumber}")]
+        public async Task<IActionResult> GetOrderByOrderNumber(int orderNumber)
         {
             var collection = _database.GetCollection<BsonDocument>("Orders");
+
+            // Create a filter to find the order with the specified OrderNumber
+            var filter = Builders<BsonDocument>.Filter.Eq("OrderNumber", orderNumber);
+
+            // Find the order in the collection
+            var orderDocument = await collection.Find(filter).FirstOrDefaultAsync();
+            var document = BsonTypeMapper.MapToDotNetValue(orderDocument);
+            if (orderDocument == null)
+            {
+                // Return a 404 if the order is not found
+                return NotFound($"Order with OrderNumber {orderNumber} not found.");
+            }
+
+            // Return the found order
+            return Json(document);
+        }
+
+
+
+        [HttpGet("GetAllOrders")]
+        public async Task<IActionResult> GetAllOrders()
+        {
+           var collection = _database.GetCollection<BsonDocument>("Orders");
             var documents = collection.Find(new BsonDocument()).ToList();
 
-            // Convert BSON documents to dynamic objects
-
-            var jsonResult = documents.Select(doc => Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(doc.ToJson())).ToList();
+            // Convert documents to a list of JSON objects
+            var jsonResult = documents.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
             // Return the data as JSON
             return Json(jsonResult);
         }
-
-        //        {
-
-        //  "type": "dine in",
-        //  "status": "pending",
-        //  "tablenumber":"2",
-        //  "items": [
-        //    {
-
-        //      "Category": "Beverages",
-        //      "ItemName": "Coffee",
-        //      "Description": "Freshly brewed coffee",
-        //      "price": 3.5,
-        //      "Ingredients": ["Water", "Coffee beans", "Sugar"],
-        //      "Type": "drink"
-        //    },
-        //    {
-
-        //      "Category": "Snacks",
-        //      "ItemName": "Muffin",
-        //      "Description": "Blueberry muffin",
-        //      "price": 2.0,
-        //      "Ingredients": ["Flour", "Sugar", "Blueberries", "Butter"],
-        //      "Type": "food"
-        //    }
-        //  ]
-        //}
 
 
 
         [HttpPost("CreateOrder")]
         public async Task<IActionResult> CreateOrder([FromBody] JsonElement jsonElement)
         {
-            // Convert the JSON element to a JSON string
+
+            double TotalPrice = 0;
+            int GrossNumber = 0;
             string jsonString = jsonElement.GetRawText();
-
-            // Parse the JSON string to a BsonDocument
             BsonDocument document = BsonDocument.Parse(jsonString);
-
-            // Get the MongoDB collection for Orders
             var collection = _database.GetCollection<BsonDocument>("Orders");
 
-            string tableNumber = "0";
-            int grossnumber =0;
-            if (jsonElement.TryGetProperty("tablenumber", out JsonElement tableNumberElement))
+            var newOrder = new Order
             {
-                tableNumber = tableNumberElement.GetString();
-            }
-            string stype = "";
-            if (jsonElement.TryGetProperty("type", out JsonElement typeElement))
-            {
-                stype = typeElement.GetString();
-            }
-            // Get the MongoDB collection for Table
-            var tableCollection = _database.GetCollection<Table>("Table");
+                TableNumber = document["TableNumber"].AsString,
+                Type = document["Type"].AsString
+                // Add other properties as needed
+            };
 
-          
-            var filter = Builders<Table>.Filter.Eq(t => t.tableNumber, int.Parse(tableNumber));
+           TotalPrice=CalculateTotalPrice(jsonElement, newOrder.Type);
 
-           
-            var GrossCollection = _database.GetCollection<Gross>("Gross");
+            GrossNumber = UpdateTheGrossNew(TotalPrice).Result;
 
-           
-            var filtergross = Builders<Gross>.Filter.Eq(g => g.status, "Pending");
-
-            var theGross = GrossCollection.Find(filtergross).FirstOrDefault();
-
-            if (theGross != null)
-            {
             
-                 grossnumber = theGross.grossNumber;
-                Console.WriteLine($"Gross Number: {grossnumber}");
-            }
-            else
-            {
-                return Ok(new { success = false, message = "Start your day please" });
-            }
 
-            if (stype == "Dine in")
+            if (newOrder.Type == "Dine In")
             {
-                var update = Builders<Table>.Update.Set(t => t.Status, "Taken");
-
-                // Update the document in the Table collection
-                var result = await tableCollection.UpdateOneAsync(filter, update);
-            }else if (stype == "Delivery")
+                UpdateTableStatus(newOrder.TableNumber, "Taken");
+            }
+            else if (newOrder.Type == "Delivery")
             {
 
             }
-         
-            // Define the update to change the status
-           
 
-            // Get the MongoDB collection for Orders
-            var ordersCollection = _database.GetCollection<Order>("Orders");
+            // Add a new sequence value for the table ID
 
-            // Define the sort operation to get the largest orderNumber
-            var sort = Builders<Order>.Sort.Descending(o => o.ordernumber);
-
-            // Find the document with the largest orderNumber
-            var largestOrder = await ordersCollection.Find(new BsonDocument())
-                                                     .Sort(sort)
-                                                     .Limit(1)
-                                                     .FirstOrDefaultAsync();
-
-            int newOrderNumber = largestOrder != null ? int.Parse(largestOrder.ordernumber) + 1 : 0;
-
-          
-            document["ordernumber"] = newOrderNumber.ToString();
-
-            document["dateofOrder"] = DateTime.Now.ToString();
-
-            document["grossNumber"] = grossnumber;
-
-            double totalPrice = CalculateTotalPrice(jsonElement ,stype);
-
-            document["totalprice"] = totalPrice;
-
-
+            int newSequenceValue = _globalService.SequenceIncrement("OrderNumber").GetAwaiter().GetResult();
+            document.Add("OrderNumber", newSequenceValue);
+            document.Add("DateOfOrder", DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"));
+            document.Add("GrossNumber", GrossNumber);
+            document.Add("TotalPrice", TotalPrice);
             document.Add("Created_by", _globalService.username);
-
-
             await collection.InsertOneAsync(document);
+            return Ok(new { message = "Order created successfully", OrderNumber = newSequenceValue.ToString(), TotalPrice });
 
-         
-            var collectionOrdernew = _database.GetCollection<BsonDocument>("Orders");
 
-            var filterOrderGross = Builders<BsonDocument>.Filter.Eq("grossNumber", grossnumber);
-            var documents = await collectionOrdernew.Find(filterOrderGross).ToListAsync();
 
-            double TP = 0;
+        }
 
-            foreach (var item in documents) // Use 'documents' instead of 'document'
+
+        [HttpPut("UpdateOrderByOrderNumber/{ordernumber}")]
+        public async Task<IActionResult> UpdateOrderByOrderNumber(int ordernumber, [FromBody] JsonElement jsonElement)
+        {
+            double TotalNewPrice = 0;
+            double TotalOldPrice = 0;
+            int GrossNumber = 0;
+            string oldType = "";
+            string TableNumberOld = "";
+            string jsonString = jsonElement.GetRawText();
+            BsonDocument document = BsonDocument.Parse(jsonString);
+
+            var Order = new Order
             {
-                
-                if (item.Contains("totalprice") && item["totalprice"].IsDouble)
+                TableNumber = document["TableNumber"].AsString,
+                Type = document["Type"].AsString,
+                TotalOldPrice = document["TotalPrice"].AsDouble,
+            };
+
+            var collection = _database.GetCollection<BsonDocument>("Orders");
+
+            // Create a filter to find the order with the specified OrderNumber
+            var filter = Builders<BsonDocument>.Filter.Eq("OrderNumber", ordernumber);
+
+            // Find the order in the collection
+            var orderDocument = await collection.Find(filter).FirstOrDefaultAsync();
+
+            if (orderDocument == null)
+            {
+                // Return a 404 if the order is not found
+                return NotFound($"Order with OrderNumber {ordernumber} not found.");
+            }
+
+            // Access the individual attributes of the existing order
+            TableNumberOld = orderDocument.GetValue("TableNumber").AsString;
+            oldType = orderDocument.GetValue("Type").AsString;
+            TotalOldPrice = orderDocument.GetValue("TotalPrice").AsDouble;
+
+            // Update table statuses based on changes
+            if (TableNumberOld != Order.TableNumber)
+            {
+                if (Order.Type == oldType)
                 {
-                    TP += item["totalprice"].AsDouble; // Accumulate the total price
+                    UpdateTableStatus(TableNumberOld, "Available");
+                    UpdateTableStatus(Order.TableNumber, "Taken");
                 }
                 else
                 {
-                    
+                    UpdateTableStatus(Order.TableNumber, "Taken");
+                }
+            }
+            else if (Order.Type != oldType)
+            {
+                if (Order.Type == "Dine In")
+                {
+                    UpdateTableStatus(Order.TableNumber, "Taken");
+                }
+                else if (Order.Type == "Delivery")
+                {
+                    UpdateTableStatus(TableNumberOld, "Available");
                 }
             }
 
+            // Calculate new total price
+            TotalNewPrice = CalculateTotalPrice(jsonElement, Order.Type);
 
-            updatetheGrossnew(grossnumber, TP);
+            // Update gross values
+            await UpdateTheGrossNew(-TotalOldPrice);
+            await UpdateTheGrossNew(TotalNewPrice);
 
+            // Update the order with new values
+            var updateDefinition = Builders<BsonDocument>.Update
+                .Set("TableNumber", Order.TableNumber)
+                .Set("Type", Order.Type)
+                .Set("TotalPrice", TotalNewPrice);
 
+            var updateResult = await collection.UpdateOneAsync(filter, updateDefinition);
 
+            if (updateResult.ModifiedCount == 0)
+            {
+                return StatusCode(500, "Nothing Chnanged");
+            }
 
-            _globalService.LogAction($"Order '{tableNumber}' Created with total price {totalPrice}.", "Created");
-
-            return Ok(new { message = "Order created successfully", orderId = document["_id"].ToString(), totalPrice });
+            return Ok(new { message = "Order updated successfully", TotalNewPrice });
         }
+
+
+
+
+        [HttpDelete("DeleteOrderByOrderNumber/{orderNumber}")]
+        public IActionResult DeleteOrderByOrderNumber(int orderNumber)
+        {
+
+            var GrossCollection = _database.GetCollection<BsonDocument>("Orders");
+
+
+            double orderAmount = 0;
+
+
+            var collection = _database.GetCollection<BsonDocument>("Orders");
+            var filter = Builders<BsonDocument>.Filter.Eq("OrderNumber", orderNumber);
+            var payment = collection.Find(filter).FirstOrDefault();
+
+            if (payment != null)
+            {
+                orderAmount = payment["TotalPrice"].AsDouble;
+                UpdateTheGrossNew(-orderAmount);
+
+                Console.WriteLine($"Order amount: {orderAmount}");
+            }
+            else
+            {
+                Console.WriteLine("Order not found.");
+            }
+
+            var deleteResult = collection.DeleteOne(filter);
+
+            if (deleteResult.DeletedCount == 0)
+            {
+                return NotFound();
+            }
+
+            return Ok();
+        }
+
+
+
+
+
+
+        public async Task<int> UpdateTheGrossNew(double amount)
+        {
+            var grossCollection = _database.GetCollection<BsonDocument>("Gross");
+
+            var filterGross = Builders<BsonDocument>.Filter.Eq("Status", "Open");
+            var theGross = await grossCollection.Find(filterGross).FirstOrDefaultAsync();
+
+            if (theGross == null)
+            {
+                throw new Exception("Start your day please.");
+            }
+
+            if (!theGross.Contains("GrossNumber"))
+            {
+                throw new Exception("GrossNumber field is missing in the document.");
+            }
+
+            int grossNumber = theGross["GrossNumber"].AsInt32;
+
+            // Debug statement to log the document found by the filter
+            Console.WriteLine(theGross.ToJson());
+
+            var update = Builders<BsonDocument>.Update.Inc("TotalGross", amount);
+            var updateResult = await grossCollection.UpdateOneAsync(filterGross, update);
+
+            // Debug statement to log the update result
+            Console.WriteLine($"Matched Count: {updateResult.MatchedCount}, Modified Count: {updateResult.ModifiedCount}");
+
+            if (updateResult.ModifiedCount == 0)
+            {
+                throw new Exception("No updates were made to the gross document.");
+            }
+
+            return grossNumber;
+        }
+
+
+
+
+        private async void UpdateTableStatus(string TableNumber ,string Status)
+        {
+            var tableCollection = _database.GetCollection<BsonDocument>("Table");
+            var update = Builders<BsonDocument>.Update.Set("Status", Status);
+            var filter = Builders<BsonDocument>.Filter.Eq("TableNumber", TableNumber);
+            var result = await tableCollection.UpdateOneAsync(filter, update);
+
+        }
+
+
 
         private double CalculateTotalPrice(JsonElement jsonElement, string stype)
         {
             double total = 0;
-   
-            if (stype=="Dine in")
+
+            if (stype == "Dine In")
             {
 
-                if (jsonElement.TryGetProperty("items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
+                if (jsonElement.TryGetProperty("Items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
                 {
                     foreach (JsonElement item in itemsElement.EnumerateArray())
                     {
                         // Get the main item's price
-                        if (item.TryGetProperty("price", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
+                        if (item.TryGetProperty("PriceDineIn", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
                         {
                             total += price; // Add main item price to total
                         }
 
                         // Check for addons and sum their prices
-                        if (item.TryGetProperty("Addons", out JsonElement addonsElement) && addonsElement.ValueKind == JsonValueKind.Array)
+                        if (item.TryGetProperty("AddOns", out JsonElement addonsElement) && addonsElement.ValueKind == JsonValueKind.Array)
                         {
                             foreach (JsonElement addon in addonsElement.EnumerateArray())
                             {
-                                if (addon.TryGetProperty("price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
+                                if (addon.TryGetProperty("Price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
                                 {
                                     total += addonPrice; // Add addon price to total
                                     int x = 0;
@@ -243,22 +329,22 @@ namespace backend.Controllers
             }
             else if (stype == "Delivery")
             {
-                if (jsonElement.TryGetProperty("items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
+                if (jsonElement.TryGetProperty("Items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
                 {
                     foreach (JsonElement item in itemsElement.EnumerateArray())
                     {
                         // Get the main item's price
-                        if (item.TryGetProperty("pricedel", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
+                        if (item.TryGetProperty("PriceDelivery", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
                         {
                             total += price; // Add main item price to total
                         }
 
                         // Check for addons and sum their prices
-                        if (item.TryGetProperty("Addons", out JsonElement addonsElement) && addonsElement.ValueKind == JsonValueKind.Array)
+                        if (item.TryGetProperty("AddOns", out JsonElement addonsElement) && addonsElement.ValueKind == JsonValueKind.Array)
                         {
                             foreach (JsonElement addon in addonsElement.EnumerateArray())
                             {
-                                if (addon.TryGetProperty("price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
+                                if (addon.TryGetProperty("Price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
                                 {
                                     total += addonPrice; // Add addon price to total
                                     int x = 0;
@@ -268,7 +354,7 @@ namespace backend.Controllers
                     }
                 }
             }
-          
+
             return total;
         }
 
@@ -276,438 +362,10 @@ namespace backend.Controllers
 
 
 
-        // Get a specific document by ID
-        [HttpGet("GetOrderbyOrderNumber/{ordernumber}")]
-        public IActionResult GetOrderbyOrderNumber(string ordernumber)
-        {
-            try
-            {
-                // Get the 'Orders' collection and create the filter
-                var collection = _database.GetCollection<BsonDocument>("Orders");
-                var filter = Builders<BsonDocument>.Filter.Eq("ordernumber", ordernumber);
-
-                // Find the document matching the filter
-                var document = collection.Find(filter).FirstOrDefault();
-
-                // If no document is found, return a NotFound response
-                if (document == null)
-                {
-                    return NotFound($"Order with ordernumber {ordernumber} not found.");
-                }
-
-                // Convert the BsonDocument to a dynamic object and return it as JSON
-                var jsonOrder = BsonTypeMapper.MapToDotNetValue(document);
-
-                return Ok(jsonOrder);
-            }
-            catch (Exception ex)
-            {
-                // Log the exception and return a 500 internal server error
-                _logger.LogError($"Error fetching order {ordernumber}: {ex.Message}");
-                return StatusCode(500, "Internal server error");
-            }
-        }
-
-        //https://localhost:7092/api/Order/GetOrderbyDay?date=9/18/2024
-        [HttpGet("GetOrderbyDay")]
-        public IActionResult GetOrderbyDate([FromQuery] string date)
-        {
-            try
-            {
-                // Get the 'Orders' collection
-                var collection = _database.GetCollection<BsonDocument>("Orders");
-
-                // Create a filter to match the date part of the 'orderDate' field (assuming it's stored as a string)
-                // Using a regular expression to match the date part only
-                var filter = Builders<BsonDocument>.Filter.Regex("dateofOrder", new BsonRegularExpression($"^{date}"));
-
-                // Find all documents matching the filter
-                var documents = collection.Find(filter).ToList();
-
-                // If no documents are found, return a NotFound response
-                if (documents == null || documents.Count == 0)
-                {
-                    return NotFound($"No orders found for the date {date}.");
-                }
-
-                // Convert the BsonDocuments to dynamic objects and return them as JSON
-                var jsonOrders = documents.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
-
-                return Ok(jsonOrders);
-            }
-            catch (Exception ex)
-            {
-                // Log the exception and return a 500 internal server error
-                _logger.LogError($"Error fetching orders for date {date}: {ex.Message}");
-                return StatusCode(500, "Internal server error");
-            }
-        }
-
-
-
-
-
-
-
-
-
-        [HttpPost("CreateGross")]
-        public async Task<IActionResult> CreateGross([FromBody] JsonElement jsonElement)
-        {
-            try
-            {
-                var grossCollection = _database.GetCollection<Gross>("Gross");
-
-                // Filter the collection to find entries where status is "Pending"
-                var pendingGross = await grossCollection.Find(g => g.status == "Pending").FirstOrDefaultAsync();
-
-                if (pendingGross != null)
-                {
-                    return BadRequest("There is already a gross entry with 'Pending' status.");
-                }
-
-                var sort = Builders<Gross>.Sort.Descending(g => g.grossNumber);
-                var largestGross = await grossCollection.Find(new BsonDocument())
-                                                        .Sort(sort)
-                                                        .Limit(1)
-                                                        .FirstOrDefaultAsync();
-
-                string jsonString = jsonElement.GetRawText();
-                BsonDocument document = BsonDocument.Parse(jsonString);
-
-                document["dateofGrossPay"] = DateTime.Now.ToString();
-                document["status"] = "Pending";
-
-                if (largestGross != null)
-                {
-                    document["grossNumber"] = largestGross.grossNumber + 1;
-                }
-                else
-                {
-                    document["grossNumber"] = 1;
-                }
-
-                var bsonCollection = _database.GetCollection<BsonDocument>("Gross");
-                await bsonCollection.InsertOneAsync(document);
-
-                return Ok("Gross entry created successfully.");
-            }
-            catch (Exception ex)
-            {
-                return BadRequest($"Error creating gross entry: {ex.Message}");
-            }
-        }
-
-
-
-
-        [HttpGet("PrintOrders")]
-        public IActionResult PrintOrders()
-        {
-            // Get the MongoDB collection
-            var collection = _database.GetCollection<BsonDocument>("Orders");
-
-            // Retrieve all documents (orders) from the collection
-            var orders = collection.Find(new BsonDocument()).ToList();
-
-            // Loop through each order and print the order details and item descriptions to the console
-            foreach (var order in orders)
-            {
-                Console.WriteLine($"Order ID: {order["_id"]}");
-                Console.WriteLine($"Type: {order["type"]}");
-                Console.WriteLine($"Status: {order["status"]}");
-                Console.WriteLine("Items:");
-
-                var items = order["items"].AsBsonArray;
-                foreach (var item in items)
-                {
-                    Console.WriteLine($"\tItem Name: {item["ItemName"]}");
-                    Console.WriteLine($"\tDescription: {item["Description"]}");
-                    Console.WriteLine($"\tPrice: {item["price"]}");
-                    Console.WriteLine();
-                }
-            }
-
-            // Return a simple success message
-            return Ok("Orders printed to console.");
-        }
-
-
-        [HttpGet("GetOrdersinProcess")]
-        public IActionResult GetOrdersinProcess()
-        {
-            var collection = _database.GetCollection<Order>("Order");
-            int x = 0;
-            // Find orders with status "Pending"
-            var pendingOrders = collection.Find(order => order.status == "Pending").ToList();
-
-            // Print the status of each pending order to the console
-            foreach (var order in pendingOrders)
-            {
-                Console.WriteLine($"Order Status: {order.status}");
-            }
-
-            // Convert pending orders to JSON
-            var jsonResult = pendingOrders.Select(order => JsonSerializer.Serialize(order)).ToList();
-
-            // Return the data as JSON
-            return Json(jsonResult);
-
-        }
-        [HttpPut("UpdateOrder/{ordernumber}")]
-        public async Task<IActionResult> UpdateOrder(string ordernumber, [FromBody] JsonElement jsonElement)
-        {
-            int grossnumber;
-            string tableNumberValue;
-            string tablenumberstring="";
-            try
-            {
-                string jsonString = jsonElement.GetRawText();
-                BsonDocument updatedDocument = BsonDocument.Parse(jsonString);
-                _logger.LogInformation($"Received JSON: {jsonString}");
-                string a=updatedDocument["type"].AsString;
-
-            
-                var collection = _database.GetCollection<BsonDocument>("Orders");
-
-
-                var filter = Builders<BsonDocument>.Filter.Eq("ordernumber", ordernumber);
-                var document = await collection.Find(filter).FirstOrDefaultAsync();
-
-                double totalnewpayment =CalculateTotalPrice(jsonElement, a);
-                double oldpayment = 0;
-                if (document.Contains("tablenumber"))
-                {
-                    var tablenumbereElement = document.GetElement("tablenumber");
-    
-                    tablenumberstring = tablenumbereElement.Value.ToString();
-                    
-
-
-                   
-                }
-                else
-                {
-                    // Handle the case where the attribute does not exist
-                    Console.WriteLine("The attribute 'customerName' does not exist.");
-                }
-
-                if (document.Contains("totalPrice"))
-                {
-                    var totalPriceE = document.GetElement("totalPrice");
-
-                    oldpayment = double.Parse(totalPriceE.ToString());
-
-
-
-                }
-                else
-                {
-                    // Handle the case where the attribute does not exist
-                    Console.WriteLine("The attribute 'customerName' does not exist.");
-                }
-
-
-                if (document != null)
-                {
-                    updatedDocument["totalprice"] = totalnewpayment;
-                    string orderNumberValue = document["ordernumber"].AsString;
-                     tableNumberValue = updatedDocument["tablenumber"].AsString;
-                    double beforetotalprice = document["totalprice"].AsDouble;
-                    grossnumber = document["grossNumber"].AsInt32;
-                    _logger.LogInformation($"Order Number: {orderNumberValue}");
-                    _logger.LogInformation($"Table Number: {tableNumberValue}");
-
-                    //var items = document["items"].AsBsonArray;
-                    //foreach (var item in items)
-                    //{
-                    //    string category = item["Category"].AsString;
-                    //    string itemName = item["ItemName"].AsString;
-                    //    string description = item["Description"].AsString;
-                    //    double price = item["price"].AsDouble;
-                    //    var ingredients = item["Ingredients"].AsBsonArray.Select(i => i.AsString).ToList();
-                    //    string type = item["Type"].AsString;
-
-                    //    _logger.LogInformation($"Category: {category}");
-                    //    _logger.LogInformation($"Item Name: {itemName}");
-                    //    _logger.LogInformation($"Description: {description}");
-                    //    _logger.LogInformation($"Price: {price}");
-                    //    _logger.LogInformation($"Ingredients: {string.Join(", ", ingredients)}");
-                    //    _logger.LogInformation($"Type: {type}");
-                    //}
-                }
-                else
-                {
-                    _logger.LogWarning("Document not found.");
-                    return NotFound(new { message = "Order not found" });
-                }
-
-
-
-
-                var result = await collection.ReplaceOneAsync(filter, updatedDocument);
-
-
-                if (a == "Delivery")
-                {
-                    var tableCollection = _database.GetCollection<Table>("Table");
-
-
-                    var filtertablold = Builders<Table>.Filter.Eq(t => t.tableNumber, int.Parse(tablenumberstring));
-
-                    // Define the update to change the status
-                    var updateold = Builders<Table>.Update.Set(t => t.Status, "Available");
-
-                    // Update the document in the Table collection
-                    var resultold = await tableCollection.UpdateOneAsync(filtertablold, updateold);
-                }else if(a=="Dine in")
-                {
-                    if (tablenumberstring != tableNumberValue)
-                    {
-                        var tableCollection = _database.GetCollection<Table>("Table");
-
-
-                        var filtertablold = Builders<Table>.Filter.Eq(t => t.tableNumber, int.Parse(tablenumberstring));
-
-                        // Define the update to change the status
-                        var updateold = Builders<Table>.Update.Set(t => t.Status, "Available");
-
-                        // Update the document in the Table collection
-                        var resultold = await tableCollection.UpdateOneAsync(filtertablold, updateold);
-
-                        var filtertabnew = Builders<Table>.Filter.Eq(t => t.tableNumber, int.Parse(tableNumberValue));
-
-                        // Define the update to change the status
-                        var updateoldnew = Builders<Table>.Update.Set(t => t.Status, "Taken");
-
-                        // Update the document in the Table collection
-                        var resultoldnew = await tableCollection.UpdateOneAsync(filtertabnew, updateoldnew);
-
-                    }
-
-                }
-
-
-
-
-                // Update the document in the Table collection
-               
-                updatetheGrossnew(grossnumber, -oldpayment);
-                updatetheGrossnew(grossnumber, totalnewpayment);
-
-
-                if (result.ModifiedCount > 0)
-                {
-                    return Ok(updatedDocument.ToJson());
-                }
-                else
-                {
-                    return NotFound(new { message = "Order not found" });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while updating the order.");
-                return StatusCode(500, "Internal server error");
-            }
-        }
-
-
-
-        [HttpDelete("DeleteOrder/{ordernumber}")]
-        public async Task<IActionResult> DeleteOrder(string ordernumber)
-        {
-            var collectionOrdernew = _database.GetCollection<Order>("Orders"); // Use Order type instead of BsonDocument
-
-            // Filter for orders that match the given ordernumber
-            var filterOrder = Builders<Order>.Filter.Eq(o => o.ordernumber, ordernumber);
-
-            // Find the order matching the ordernumber
-            var order = await collectionOrdernew.Find(filterOrder).FirstOrDefaultAsync();
-
-            // If the order is not found, return a 404 NotFound result
-            if (order == null)
-            {
-                return NotFound("Order not found");
-            }
-
-            // Store the grossNumber before deleting
-            int x = order.grossNumber;
-          
-
-           // Delete the order from the collection
-           await collectionOrdernew.DeleteOneAsync(filterOrder);
-
-            var orderpayment = await _database.GetCollection<Order>("Orders")
-                           .Find(Builders<Order>.Filter.Eq(o => o.ordernumber, ordernumber))
-                           .FirstOrDefaultAsync();
-
-            var paymentAmount = order?.totalprice ?? 0;
-
-
-
-
-            updatetheGrossnew(x, -paymentAmount);
-
-            // Log the deletion
-            _globalService.LogAction($"Order '{ordernumber}' deleted.", "Deleted");
-
-            return Ok("Order deleted successfully");
-        }
-
-
-        public async Task updatetheGross(int grossNumber,double amount ) 
-        {
-            var GrossCollection = _database.GetCollection<Gross>("Gross");
-
-
-            var collectionOrdernew = _database.GetCollection<Order>("Orders"); // Use Order type instead of BsonDocument
-
-            // Filter for orders that match the grossNumber using the Order class
-            var filterOrderGross = Builders<Order>.Filter.Eq(o => o.grossNumber, grossNumber);
-            var documents = await collectionOrdernew.Find(filterOrderGross).ToListAsync();
-
-            double TP = 0; // Total price accumulator
-
-            if (documents.Count() == 0)
-            {
-                TP = 0;
-            }else
-            {
-                foreach (var item in documents)
-                {
-                    // Accumulate the totalprice from each Order
-                    TP += item.totalprice;
-                }
-            }
-
-           
-
-            // Update the totalGross field in the Gross collection where status is "Pending"
-            var updategross = Builders<Gross>.Update.Set(t => t.totalGross, TP);
-            var filtergross = Builders<Gross>.Filter.Eq(g => g.status, "Pending");
-
-            var resultgross = await GrossCollection.UpdateOneAsync(filtergross, updategross);
-        }
-
-
-        public async Task updatetheGrossnew(int grossNumber, double amount)
-        {
-            var GrossCollection = _database.GetCollection<Gross>("Gross");
-
-            // Find the first 'Gross' document with a status of 'Pending'
-            var filtergross = Builders<Gross>.Filter.Eq(g => g.status, "Pending");
-            var theGross = GrossCollection.Find(filtergross).FirstOrDefault();
-            // Increment the 'grossnumber' in the 'Gross' document by 5
-            var update = Builders<Gross>.Update.Inc(g => g.totalGross, amount);
-            GrossCollection.UpdateOne(filtergross, update);
-
-
-        }
-
-
-
 
 
     }
 }
+
+
+    

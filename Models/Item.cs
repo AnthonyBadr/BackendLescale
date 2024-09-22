@@ -5,27 +5,25 @@ namespace backend.Models
 {
     public class Item
     {
-        [BsonId]
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; }
+       
 
-        public string Category {  get; set; }
+        public string CategoryName {  get; set; }
 
-        public string ItemName { get; set; }
+        public string Name { get; set; }
         public string Description { get; set; }
 
-        public double price { get; set; }
+        public double PriceDineIn { get; set; }
 
-        public double pricedel { get; set; }
+        public double PriceDelivery { get; set; }
 
         public List<string> Ingredients = new List<string>();
 
-        public string Type {  get; set; }
-
-        public  List<string> Remnovals = new List<string>();
 
 
-        public List<ItemIng> Addons = new List<ItemIng>();
+        public  List<string> Removals = new List<string>();
+
+
+        public List<ItemIng> AddOns = new List<ItemIng>();
 
 
     }
@@ -33,35 +31,47 @@ namespace backend.Models
 
 
 /*
-
-{
-
-    "Category": "Electronics",
-  "ItemName": "Smartphone",
-  "Description": "Latest model smartphone",
-  "price": 999.99,
-  "pricedel": 899.99,
-  "Ingredients": [
-    "Battery",
-    "Screen",
-    "Camera"
-  ],
-  "Type": "Gadget",
-  "Remnovals": [
-    "Old Battery",
-    "Damaged Screen"
-  ],
-  "Addons": [
+ * {
+  "Type": "Dine-In",
+  "DateOfOrder": "2023-09-22T14:30:00Z",
+  "OrderNumber": "ORD12345",
+  "Status": "Pending",
+  "Items": [
     {
-        "id": 1,
-      "name": "Wireless Charger",
-      "price": 29.99
+      "CategoryName": "Appetizer",
+      "Name": "Spring Rolls",
+      "Description": "Crispy spring rolls with vegetables.",
+      "PriceDineIn": 5.99,
+      "PriceDelivery": 6.99,
+      "Ingredients": [
+        "Cabbage",
+        "Carrots",
+        "Glass Noodles"
+      ],
+      "Removals": [],
+      "AddOns": []
     },
     {
-        "id": 2,
-      "name": "Screen Protector",
-      "price": 9.99
+      "CategoryName": "Main Course",
+      "Name": "Chicken Curry",
+      "Description": "Spicy chicken curry with rice.",
+      "PriceDineIn": 12.99,
+      "PriceDelivery": 13.99,
+      "Ingredients": [
+        "Chicken",
+        "Curry Sauce",
+        "Rice"
+      ],
+      "Removals": [],
+      "AddOns": []
     }
-  ]
+  ],
+  "TableNumber": "5",
+  "TotoalPrice": 18.98,
+  "GrossNumber": 1,
+  "DeleiveryCharge": 2.50,
+  "Location": "123 Main St, Cityville",
+  "CreatedBy": "user@example.com",
+  "Quantity": 2
 }
 */

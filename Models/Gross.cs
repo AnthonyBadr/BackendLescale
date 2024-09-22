@@ -5,17 +5,17 @@ namespace backend.Models
 {
     public class Gross
     {
-        [BsonId]
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; }
 
-        public double totalGross { get; set; }
+        public int GrossNumber { get; set; }
+        public double TotalGross { get; set; }
 
-        public string dateofGrossPay { get; set; }
+        public string DateOfCreation { get; set; }
 
-        public string status { get; set; }
+        public string DateOfClose { get; set; }
 
-        public int grossNumber { get; set; }
+        public string Status { get; set; }
+
+        
     }
 }
     

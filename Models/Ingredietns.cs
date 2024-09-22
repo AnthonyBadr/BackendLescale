@@ -8,7 +8,7 @@ namespace backend.Models
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; }
-        public string Ingredientcategory { get; set; }
+        public string IngredientCategory { get; set; }
         public List<ItemIng> Items = new List<ItemIng>();
     }
 }

@@ -65,6 +65,7 @@ namespace backend.Controllers
                     // Compare the hashed passwords
                     if (hashedPassword == storedHashedPassword)
                     {
+                        _globalService.username = Username;
                         // Return the user document without any deserialization into booleans
                         return Ok(userDocument.ToJson());
                     }

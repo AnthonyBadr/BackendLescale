@@ -75,7 +75,7 @@ namespace backend.Controllers
             {
                 // Parse the JSON element
                 var document = BsonDocument.Parse(jsonElement.ToString());
-
+                string username = document["Username"].AsString;
                 // Extract the password
                 if (document.TryGetValue("Pin", out BsonValue passwordValue))
                 {
@@ -104,6 +104,7 @@ namespace backend.Controllers
                 // Insert the document into the collection
                 var collection = _database.GetCollection<BsonDocument>("User");
                 await collection.InsertOneAsync(document);
+                _globalService.LogAction($"User '{username}' created.", "Created");
 
                 return Ok(new { Id = newSequenceValue, Message = "User created successfully." });
             }
@@ -136,7 +137,7 @@ namespace backend.Controllers
 
             // Remove the 'Id' field from the document if it exists, so it won't be updated
             document.Remove("Id");
-
+            string username = document["Username"].AsString;
             // Check if the document contains a password field and hash it
             if (document.Contains("Pin"))
             {
@@ -172,6 +173,7 @@ namespace backend.Controllers
             {
                 return NotFound("Document not found.");
             }
+            _globalService.LogAction($"User '{username}' updated.", "updated");
 
             return Ok("Document updated successfully.");
         }
@@ -213,6 +215,7 @@ namespace backend.Controllers
             {
                 return NotFound();
             }
+            _globalService.LogAction($"User '{Id}' deleted.", "Delete");
 
             return Ok();
         }
