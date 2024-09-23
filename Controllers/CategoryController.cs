@@ -94,7 +94,7 @@ namespace backend.Controllers
             var itemCollection = _database.GetCollection<BsonDocument>("Item");
 
             // Filter to check if items exist with the given category name
-            var filter2 = Builders<BsonDocument>.Filter.Eq("Category", name);
+            var filter2 = Builders<BsonDocument>.Filter.Eq("CategoryName", name);
             var itemExists = itemCollection.Find(filter2).Any(); // Check if any items are associated with this category
 
             if (itemExists)
@@ -103,7 +103,7 @@ namespace backend.Controllers
             }
 
             // Proceed with deleting the category
-            var filter = Builders<BsonDocument>.Filter.Eq("name", name); // Filter by name
+            var filter = Builders<BsonDocument>.Filter.Eq("Name", name); // Filter by name
             var deleteResult = categoryCollection.DeleteOne(filter);
 
             if (deleteResult.DeletedCount == 0)
@@ -143,26 +143,26 @@ namespace backend.Controllers
             }
 
 
-            if (!document.Contains("name"))
+            if (!document.Contains("Name"))
             {
                 return BadRequest("The 'name' field is required in the document.");
             }
 
 
-            string newCategoryName = document["name"].AsString;
+            string newCategoryName = document["Name"].AsString;
 
 
             var collection = _database.GetCollection<BsonDocument>("Category");
 
 
-            var existingCategory = collection.Find(Builders<BsonDocument>.Filter.Eq("name", newCategoryName)).FirstOrDefault();
+            var existingCategory = collection.Find(Builders<BsonDocument>.Filter.Eq("Name", newCategoryName)).FirstOrDefault();
             if (existingCategory != null && newCategoryName != name)
             {
                 return Conflict(new { message = $"Category '{newCategoryName}' already exists." });
             }
 
 
-            var filter = Builders<BsonDocument>.Filter.Eq("name", name);
+            var filter = Builders<BsonDocument>.Filter.Eq("Name", name);
 
 
             var updateResult = collection.ReplaceOne(filter, document);
