@@ -70,7 +70,7 @@ namespace backend.Controllers
             }
 
             var collection = _database.GetCollection<BsonDocument>("Category");
-            var filter = Builders<BsonDocument>.Filter.Eq("name", name);
+            var filter = Builders<BsonDocument>.Filter.Eq("Name", name);
 
             // Find the category
             var category = collection.Find(filter).FirstOrDefault();
