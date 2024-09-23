@@ -71,11 +71,27 @@ namespace backend.Controllers
         }
 
 
-    //    {
-    //"Dairy": []
-    //}
 
-    [HttpDelete("RemoveACategory")]
+        [HttpGet("GetAllIngredients")]
+        public async Task<IActionResult> GetAllOrders()
+        {
+            var collection = _database.GetCollection<BsonDocument>("Ingredients");
+            var documents = collection.Find(new BsonDocument()).ToList();
+
+            // Convert documents to a list of JSON objects
+            var jsonResult = documents.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
+
+            // Return the data as JSON
+            return Json(jsonResult);
+        }
+
+
+
+        //    {
+        //"Dairy": []
+        //}
+
+        [HttpDelete("RemoveACategory")]
         public async Task<IActionResult> RemoveACategory([FromBody] JsonElement jsonElement)
         {
             if (jsonElement.ValueKind == JsonValueKind.Object)
@@ -93,16 +109,19 @@ namespace backend.Controllers
                     // Create a filter to find documents with the specified variable name
                     var filter = Builders<BsonDocument>.Filter.Exists($"Ingredient.{variableName}");
 
-                    // Delete the document
-                    var deleteResult = await collection.DeleteManyAsync(filter);
+                    // Create an update to remove the specified array
+                    var update = Builders<BsonDocument>.Update.Unset($"Ingredient.{variableName}");
 
-                    if (deleteResult.DeletedCount > 0)
+                    // Update the document
+                    var updateResult = await collection.UpdateManyAsync(filter, update);
+
+                    if (updateResult.ModifiedCount > 0)
                     {
-                        return Ok($"Document(s) with the variable name '{variableName}' have been removed.");
+                        return Ok($"Array '{variableName}' has been removed from the document(s).");
                     }
                     else
                     {
-                        return NotFound($"No document found with the variable name '{variableName}'.");
+                        return NotFound($"No document found with the array '{variableName}'.");
                     }
                 }
                 else
@@ -115,6 +134,7 @@ namespace backend.Controllers
                 return BadRequest("The JSON root is not an object.");
             }
         }
+
         //    {
         //    oldkey:
         //        newkey:
@@ -178,10 +198,9 @@ namespace backend.Controllers
         }
 
 
+     
 
-
-
-        [HttpPost("CreateIngredient")]
+            [HttpPost("CreateIngredient")]
         public async Task<IActionResult> CreateIngredient([FromBody] JsonElement jsonElement)
         {
             if (jsonElement.ValueKind == JsonValueKind.Object)
@@ -305,11 +324,8 @@ namespace backend.Controllers
             return Ok();
         }
 
+       
 
-
-        //      {
-        //"Sauces": ["ketchup", "mustard"]
-        //  }
 
 
     }
