@@ -55,6 +55,25 @@ namespace backend.Controllers
             return Json(jsonResult);
         }
 
+        //done
+        [HttpGet("GetTableByStatus/{Status}")]
+        public async Task<IActionResult> GetOrderByStatus(string Status)
+        {
+            var collection = _database.GetCollection<BsonDocument>("Tables");
+
+            // Create a filter to find the order with the specified OrderNumber
+            var filter = Builders<BsonDocument>.Filter.Eq("Status", Status);
+
+            var tableDocuments = collection.Find(filter).ToList();
+            var document = tableDocuments.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
+            if (tableDocuments == null)
+            {
+                return NotFound($"Table with Status {Status} not found.");
+            }
+
+            return Json(document);
+        }
+
 
         [HttpPost("CreateTable")]
         public async Task<IActionResult> CreateTable([FromBody] JsonElement jsonElement)
