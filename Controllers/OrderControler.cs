@@ -60,15 +60,15 @@ namespace backend.Controllers
             var filter = Builders<BsonDocument>.Filter.Regex("DateOfOrder", new BsonRegularExpression($"^{date}"));
 
             // Find the order in the collection
-            var orderDocument = await collection.Find(filter).FirstOrDefaultAsync();
-            if (orderDocument == null)
+            var orderDocuments =  collection.Find(filter).ToList();
+            if (orderDocuments == null)
             {
                 // Return a 404 if the order is not found
                 return NotFound($"Order with date {date} not found.");
             }
 
             // Map the BSON document to a .NET object
-            var document = BsonTypeMapper.MapToDotNetValue(orderDocument);
+            var document = orderDocuments.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
             // Return the found order
             return Json(document);
@@ -84,9 +84,9 @@ namespace backend.Controllers
             var filter = Builders<BsonDocument>.Filter.Eq("Status", Status);
 
             // Find the order in the collection
-            var orderDocument = await collection.Find(filter).FirstOrDefaultAsync();
-            var document = BsonTypeMapper.MapToDotNetValue(orderDocument);
-            if (orderDocument == null)
+            var orderDocuments =  collection.Find(filter).ToList();
+            var document = orderDocuments.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
+            if (orderDocuments == null)
             {
                 // Return a 404 if the order is not found
                 return NotFound($"Order with Status {Status} not found.");
