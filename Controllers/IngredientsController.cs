@@ -72,6 +72,33 @@ namespace backend.Controllers
 
 
 
+
+
+        [HttpGet("GetIngredientsByCategory/{categoryName}")]
+        public async Task<IActionResult> GetIngredientsByCategory(string categoryName)
+        {
+            var collection = _database.GetCollection<BsonDocument>("Ingredients");
+
+            // Create a filter to find documents that have the category as a key (e.g., "Dairy")
+            var filter = Builders<BsonDocument>.Filter.Exists(categoryName);
+
+            // Find documents that match the filter
+            var documents = await collection.Find(filter).ToListAsync();
+
+            if (documents.Count == 0)
+            {
+                return NotFound($"No documents found for category '{categoryName}'.");
+            }
+
+            // Convert documents to a list of JSON objects
+            var jsonResult = documents.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
+
+            // Return the data as JSON
+            return Json(jsonResult);
+        }
+
+
+
         [HttpGet("GetAllIngredients")]
         public async Task<IActionResult> GetAllOrders()
         {
