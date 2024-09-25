@@ -96,37 +96,34 @@ namespace backend.Controllers
         {
             if (jsonElement.ValueKind == JsonValueKind.Object)
             {
-                // Get the first property from the JSON object
+                // Get the first property from the JSON object (the category name)
                 var property = jsonElement.EnumerateObject().FirstOrDefault();
                 if (property.Value.ValueKind == JsonValueKind.Array)
                 {
-                    // Get the variable name from the JSON
-                    string variableName = property.Name;
+                    // Get the category name from the JSON (e.g., "Dairy")
+                    string categoryName = property.Name;
 
                     // Get the collection
                     var collection = _database.GetCollection<BsonDocument>("Ingredients");
 
-                    // Create a filter to find documents with the specified variable name
-                    var filter = Builders<BsonDocument>.Filter.Exists($"Ingredient.{variableName}");
+                    // Create a filter to find documents with the specified category name
+                    var filter = Builders<BsonDocument>.Filter.Exists(categoryName);
 
-                    // Create an update to remove the specified array
-                    var update = Builders<BsonDocument>.Update.Unset($"Ingredient.{variableName}");
+                    // Delete the document(s) containing the category
+                    var deleteResult = await collection.DeleteManyAsync(filter);
 
-                    // Update the document
-                    var updateResult = await collection.UpdateManyAsync(filter, update);
-
-                    if (updateResult.ModifiedCount > 0)
+                    if (deleteResult.DeletedCount > 0)
                     {
-                        return Ok($"Array '{variableName}' has been removed from the document(s).");
+                        return Ok($"Document(s) with category '{categoryName}' have been deleted.");
                     }
                     else
                     {
-                        return NotFound($"No document found with the array '{variableName}'.");
+                        return NotFound($"No document found with the category '{categoryName}'.");
                     }
                 }
                 else
                 {
-                    return BadRequest("The provided JSON does not contain an array value for removal.");
+                    return BadRequest("The provided JSON does not contain an array value for the category.");
                 }
             }
             else
@@ -134,6 +131,7 @@ namespace backend.Controllers
                 return BadRequest("The JSON root is not an object.");
             }
         }
+
 
         //    {
         //    oldkey:
@@ -163,10 +161,10 @@ namespace backend.Controllers
                         var collection = _database.GetCollection<BsonDocument>("Ingredients");
 
                         // Create an update filter to match documents containing the old key
-                        var filter = Builders<BsonDocument>.Filter.Exists($"Ingredient.{oldKey}");
+                        var filter = Builders<BsonDocument>.Filter.Exists(oldKey);
 
                         // Create an update definition to rename the old key to the new key
-                        var update = Builders<BsonDocument>.Update.Rename($"Ingredient.{oldKey}", $"Ingredient.{newKey}");
+                        var update = Builders<BsonDocument>.Update.Rename(oldKey, newKey);
 
                         // Perform the update
                         var updateResult = await collection.UpdateManyAsync(filter, update);
@@ -198,55 +196,45 @@ namespace backend.Controllers
         }
 
 
-     
-
-            [HttpPost("CreateIngredient")]
+        [HttpPost("CreateIngredient")]
         public async Task<IActionResult> CreateIngredient([FromBody] JsonElement jsonElement)
         {
             if (jsonElement.ValueKind == JsonValueKind.Object)
             {
-                // Get the 'Ingredients' property
-                if (jsonElement.TryGetProperty("Ingredient", out JsonElement ingredients))
+                // Check if the JSON contains at least one ingredient category
+                var firstProperty = jsonElement.EnumerateObject().FirstOrDefault();
+                if (firstProperty.Value.ValueKind == JsonValueKind.Array)
                 {
-                    // Check if 'Ingredients' is an object
-                    if (ingredients.ValueKind == JsonValueKind.Object)
+                    // Get the first property name (e.g., "Dairy")
+                    string typeOfIngredient = firstProperty.Name;
+
+                    // Convert the JSON element to a JSON string
+                    string jsonString = jsonElement.GetRawText();
+
+                    // Parse the JSON string to a BsonDocument
+                    BsonDocument document = BsonDocument.Parse(jsonString);
+
+                    // Get the collection
+                    var collection = _database.GetCollection<BsonDocument>("Ingredients");
+
+                    // Check if the ingredient type already exists
+                    var filter = Builders<BsonDocument>.Filter.Exists(typeOfIngredient);
+                    var existingDocument = await collection.Find(filter).FirstOrDefaultAsync();
+
+                    if (existingDocument != null)
                     {
-                        // Get the first property name
-                        var property = ingredients.EnumerateObject().FirstOrDefault();
-                        string typeOfIngredient = property.Name;
-
-                        // Convert the JSON element to a JSON string
-                        string jsonString = jsonElement.GetRawText();
-
-                        // Parse the JSON string to a BsonDocument
-                        BsonDocument document = BsonDocument.Parse(jsonString);
-
-                        // Get the collection
-                        var collection = _database.GetCollection<BsonDocument>("Ingredients");
-
-                        // Check if the ingredient type already exists
-                        var filter = Builders<BsonDocument>.Filter.Exists($"Ingredient.{typeOfIngredient}");
-                        var existingDocument = await collection.Find(filter).FirstOrDefaultAsync();
-
-                        if (existingDocument != null)
-                        {
-                            // Return a response if the ingredient type already exists
-                            return Conflict($"Ingredient type '{typeOfIngredient}' already exists.");
-                        }
-
-                        // Insert the new document
-                        await collection.InsertOneAsync(document);
-
-                        return Ok("Document created successfully.");
+                        // Return a response if the ingredient type already exists
+                        return Conflict($"Ingredient type '{typeOfIngredient}' already exists.");
                     }
-                    else
-                    {
-                        return BadRequest("The 'Ingredients' property is not an object.");
-                    }
+
+                    // Insert the new document
+                    await collection.InsertOneAsync(document);
+
+                    return Ok("Document created successfully.");
                 }
                 else
                 {
-                    return BadRequest("The 'Ingredients' property is missing.");
+                    return BadRequest("The root element should contain an array of ingredients.");
                 }
             }
             else
@@ -254,6 +242,7 @@ namespace backend.Controllers
                 return BadRequest("The JSON root is not an object.");
             }
         }
+
 
 
 
@@ -269,7 +258,7 @@ namespace backend.Controllers
             string name = jsonElement.GetProperty("Name").GetString();
             double price = jsonElement.GetProperty("Price").GetDouble();
 
-            var filter = Builders<BsonDocument>.Filter.Exists($"Ingredient.{type_of_Ingredient}");
+            var filter = Builders<BsonDocument>.Filter.Exists(type_of_Ingredient);
 
             // Define the update to add a new ingredient with both name and price
             var newIngredient = new BsonDocument
@@ -278,7 +267,7 @@ namespace backend.Controllers
         { "Price", price }
     };
 
-            var update = Builders<BsonDocument>.Update.AddToSet($"Ingredient.{type_of_Ingredient}", newIngredient);
+            var update = Builders<BsonDocument>.Update.AddToSet(type_of_Ingredient, newIngredient);
             var collection = _database.GetCollection<BsonDocument>("Ingredients");
 
             // Update the document
@@ -308,10 +297,10 @@ namespace backend.Controllers
             string name = nameElement.GetString();
 
             // Define a filter to find the document containing the specified ingredient type
-            var filter = Builders<BsonDocument>.Filter.Exists($"Ingredient.{type_of_Ingredient}");
+            var filter = Builders<BsonDocument>.Filter.Exists(type_of_Ingredient);
 
             // Define the update to remove one occurrence of the ingredient from the specified type
-            var update = Builders<BsonDocument>.Update.Pull($"Ingredient.{type_of_Ingredient}", new BsonDocument { { "Name", name } });
+            var update = Builders<BsonDocument>.Update.Pull(type_of_Ingredient, new BsonDocument { { "Name", name } });
 
             var collection = _database.GetCollection<BsonDocument>("Ingredients");
 
