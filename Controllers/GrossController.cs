@@ -40,6 +40,27 @@ namespace backend.Controllers
             return Json(jsonResult);
         }
 
+        [HttpGet("GetLatestGross")]
+        public IActionResult GetLatestGross()
+        {
+            var collection = _database.GetCollection<BsonDocument>("Gross");
+            var sort = Builders<BsonDocument>.Sort.Descending("GrossNumber");
+            var document = collection.Find(new BsonDocument()).Sort(sort).FirstOrDefault();
+
+            if (document == null)
+            {
+                return NotFound("Table not found");
+            }
+
+            // Convert the document to a .NET type
+            var jsonResult = BsonTypeMapper.MapToDotNetValue(document);
+
+            // Return the data as JSON
+            return Json(jsonResult);
+        }
+
+
+
 
         [HttpPost("CreateGross")]
         public async Task<IActionResult> CreateTable([FromBody] JsonElement jsonElement)
