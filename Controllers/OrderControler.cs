@@ -98,6 +98,58 @@ namespace backend.Controllers
 
 
 
+
+        [HttpGet("MergeOrderByOrderNumber")]
+        public async Task<IActionResult> MergeTablesOrder([FromQuery] string[] values)
+        {
+            var collection = _database.GetCollection<BsonDocument>("Orders");
+
+            var filter = Builders<BsonDocument>.Filter.In("OrderNumber", values);
+
+
+            // Retrieve the documents matching the filter
+            var orders = await collection.Find(filter).ToListAsync();
+
+            // Initialize a list to hold all the combined items
+            var combinedItems = new List<object>();
+
+            // Iterate over each order and extract the "Items" array
+            foreach (var order in orders)
+            {
+                // Convert BsonDocument to .NET friendly object
+                var document = BsonTypeMapper.MapToDotNetValue(order) as Dictionary<string, object>;
+
+                // Check if "Items" exists in the document and is a list
+                if (document != null && document.ContainsKey("Items") && document["Items"] is IEnumerable<object> items)
+                {
+                    // Add all items from the current document to the combined list
+                    combinedItems.AddRange(items);
+                }
+
+
+
+            }
+
+            // Create a response object with capitalized property names
+            var response = new
+            {
+                Description = $"Combination of {orders.Count()} Tables",
+                Type = "Dine In", // Example type, adjust as necessary
+                Status = "Pending", // Example status, adjust as necessary
+                Items = combinedItems,
+                Location="Location",
+                DeleiveryCharge=0
+            };
+
+            // Return the response with capitalized property names
+            return Ok(response);
+        }
+
+
+
+
+
+
         [HttpGet("GetAllOrders")]
         public async Task<IActionResult> GetAllOrders(int pageNumber = 1, int pageSize = 10)
         {
@@ -176,6 +228,7 @@ namespace backend.Controllers
                 double TotalNewPrice = 0;
                 double TotalOldPrice = 0;
                 int GrossNumber = 0;
+            string status = "";
                 string oldType = "";
                 string TableNumberOld = "";
                 string jsonString = jsonElement.GetRawText();
@@ -186,6 +239,7 @@ namespace backend.Controllers
                     TableNumber = document["TableNumber"].AsString,
                     Type = document["Type"].AsString,
                     TotalOldPrice = document["TotalPrice"].AsDouble,
+                    Status = document["Status"].AsString
                 };
 
                 var collection = _database.GetCollection<BsonDocument>("Orders");
@@ -206,9 +260,19 @@ namespace backend.Controllers
                 TableNumberOld = orderDocument.GetValue("TableNumber").AsString;
                 oldType = orderDocument.GetValue("Type").AsString;
                 TotalOldPrice = orderDocument.GetValue("TotalPrice").AsDouble;
+            
 
-                // Update table statuses based on changes
-                if (TableNumberOld != Order.TableNumber)
+                if (Order.Status=="Closed " || Order.Status == "Altered")
+            {
+                UpdateTableStatus(TableNumberOld, "Available");
+
+            }else
+            {
+
+           
+
+            // Update table statuses based on changes
+            if (TableNumberOld != Order.TableNumber)
                 {
                     if (Order.Type == oldType)
                     {
@@ -232,8 +296,10 @@ namespace backend.Controllers
                     }
                 }
 
-                // Calculate new total price
-                TotalNewPrice = CalculateTotalPrice(jsonElement, Order.Type);
+            }
+
+            // Calculate new total price
+            TotalNewPrice = CalculateTotalPrice(jsonElement, Order.Type);
 
                 // Update gross values
                 await UpdateTheGrossNew(-TotalOldPrice);
@@ -353,44 +419,91 @@ namespace backend.Controllers
 
 
 
-            private double CalculateTotalPrice(JsonElement jsonElement, string stype)
+
+
+
+
+
+
+        private double CalculateTotalPrice(JsonElement jsonElement, string stype)
             {
                 double total = 0;
+            string itemName = "";
+
+
 
                 if (stype == "Dine In")
                 {
 
-                    if (jsonElement.TryGetProperty("Items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
+                if (jsonElement.TryGetProperty("Items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
+                {
+
+
+
+                    foreach (JsonElement item in itemsElement.EnumerateArray())
                     {
-                        foreach (JsonElement item in itemsElement.EnumerateArray())
+
+                        if (item.TryGetProperty("Name", out JsonElement itemNameElement)) // Change "Name" to the correct property name if needed
                         {
-                            // Get the main item's price
-                            if (item.TryGetProperty("PriceDineIn", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
+                             itemName = itemNameElement.GetString(); 
+                        }
+                        if (item.TryGetProperty("Quantity", out JsonElement quantityElement) && quantityElement.TryGetInt32(out int Quantity))
+                        {
+
+                         
+
+                            if (item.TryGetProperty("StatusNew", out JsonElement statusNewElement) && statusNewElement.GetString() == "Take Away With Dine In")
+                        {
+                            if (item.TryGetProperty("PriceDelivery", out JsonElement priceElementNew) && priceElementNew.TryGetDouble(out double priceTakeAway))
                             {
-                                total += price; // Add main item price to total
+                                total += priceTakeAway* Quantity; // Add main item price to total
                             }
 
-                            // Check for addons and sum their prices
-                            if (item.TryGetProperty("AddOns", out JsonElement addonsElement) && addonsElement.ValueKind == JsonValueKind.Array)
+                            if (item.TryGetProperty("AddOns", out JsonElement addonsElementNew) && addonsElementNew.ValueKind == JsonValueKind.Array)
                             {
-                                foreach (JsonElement addon in addonsElement.EnumerateArray())
+                                foreach (JsonElement addon in addonsElementNew.EnumerateArray())
                                 {
                                     if (addon.TryGetProperty("Price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
                                     {
-                                        total += addonPrice; // Add addon price to total
-                                        int x = 0;
+                                        total += addonPrice* Quantity; // Add addon price to total
                                     }
                                 }
                             }
                         }
-                    }
+                        else if (item.TryGetProperty("PriceDineIn", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
+                        {
+                            total += price * Quantity; // Add main item price to total
+                        
 
+                        // Check for addons and sum their prices
+                        if (item.TryGetProperty("AddOns", out JsonElement addonsElement) && addonsElement.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (JsonElement addon in addonsElement.EnumerateArray())
+                            {
+                                if (addon.TryGetProperty("Price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
+                                {
+                                    total += addonPrice * Quantity; // Add addon price to total
+                                }
+                            }
+                        }
+                        }
+
+                        }
+
+                        
+                    }
+                  
                 }
-                else if (stype == "Delivery")
+
+
+            }
+            else if (stype == "Delivery")
+            {
+                if (jsonElement.TryGetProperty("Items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
                 {
-                    if (jsonElement.TryGetProperty("Items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
+                    foreach (JsonElement item in itemsElement.EnumerateArray())
                     {
-                        foreach (JsonElement item in itemsElement.EnumerateArray())
+                        if (item.TryGetProperty("Quantity", out JsonElement quantityElement) && quantityElement.TryGetInt32(out int Quantity))
                         {
                             // Get the main item's price
                             if (item.TryGetProperty("PriceDelivery", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
@@ -405,16 +518,17 @@ namespace backend.Controllers
                                 {
                                     if (addon.TryGetProperty("Price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
                                     {
-                                        total += addonPrice; // Add addon price to total
-                                        int x = 0;
+                                        total += addonPrice * Quantity; // Add addon price to total
                                     }
                                 }
                             }
                         }
                     }
                 }
+            }
+        
 
-                return total;
+            return total;
             }
 
 

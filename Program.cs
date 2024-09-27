@@ -5,7 +5,12 @@ using MongoDB.Driver;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllers() // Changed to AddControllers
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = null; // This will keep property names as they are defined
+    });
+builder.Services.AddControllersWithViews(); // Keep this if you still need MVC views
 
 builder.Services.AddCors(options =>
 {
