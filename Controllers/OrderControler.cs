@@ -17,6 +17,11 @@ namespace backend.Controllers
     [Route("api/[controller]")]
     public class OrderController : Controller
     {
+
+        List<double> itemprice = new List<double>();
+
+
+
         private readonly ILogger<OrderController> _logger;
         private readonly IMongoDatabase _database;
         private readonly GlobalService _globalService;
@@ -190,14 +195,28 @@ namespace backend.Controllers
                     Type = document["Type"].AsString
                     // Add other properties as needed
                 };
-
-                TotalPrice = CalculateTotalPrice(jsonElement, newOrder.Type);
+          
+            TotalPrice = CalculateTotalPrice(jsonElement, newOrder.Type);
 
                 GrossNumber = UpdateTheGrossNew(TotalPrice).Result;
+            int index = 0;
+            foreach (var item in document["Items"].AsBsonArray)
+            {
+                if(index< itemprice.Count())
+                {
+                    item["ItemPrice"] = itemprice[index];
+                }
+                else
+                {
+                    item["ItemPrice"] = 0; // Default rating if out of range (optional)
+                }
+
+                index++;
 
 
+            }
 
-                if (newOrder.Type == "Dine In")
+            if (newOrder.Type == "Dine In")
                 {
                     UpdateTableStatus(newOrder.TableNumber, "Taken");
                 }
@@ -297,7 +316,7 @@ namespace backend.Controllers
                 }
 
             }
-
+        
             // Calculate new total price
             TotalNewPrice = CalculateTotalPrice(jsonElement, Order.Type);
 
@@ -429,7 +448,7 @@ namespace backend.Controllers
             {
                 double total = 0;
             string itemName = "";
-
+            double priceOfItem = 0;
 
 
                 if (stype == "Dine In")
@@ -454,9 +473,11 @@ namespace backend.Controllers
 
                             if (item.TryGetProperty("StatusNew", out JsonElement statusNewElement) && statusNewElement.GetString() == "Take Away With Dine In")
                         {
+
                             if (item.TryGetProperty("PriceDelivery", out JsonElement priceElementNew) && priceElementNew.TryGetDouble(out double priceTakeAway))
                             {
                                 total += priceTakeAway* Quantity; // Add main item price to total
+                                    priceOfItem = priceTakeAway*Quantity;
                             }
 
                             if (item.TryGetProperty("AddOns", out JsonElement addonsElementNew) && addonsElementNew.ValueKind == JsonValueKind.Array)
@@ -466,31 +487,40 @@ namespace backend.Controllers
                                     if (addon.TryGetProperty("Price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
                                     {
                                         total += addonPrice* Quantity; // Add addon price to total
-                                    }
+                                            priceOfItem = priceOfItem + addonPrice*Quantity;
+                                        }
+                                 
                                 }
                             }
+
+                                itemprice.Add(priceOfItem);
                         }
                         else if (item.TryGetProperty("PriceDineIn", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
                         {
                             total += price * Quantity; // Add main item price to total
-                        
+                                priceOfItem = price * Quantity;
 
-                        // Check for addons and sum their prices
-                        if (item.TryGetProperty("AddOns", out JsonElement addonsElement) && addonsElement.ValueKind == JsonValueKind.Array)
-                        {
+                                // Check for addons and sum their prices
+                                if (item.TryGetProperty("AddOns", out JsonElement addonsElement) && addonsElement.ValueKind == JsonValueKind.Array)
+                            {
                             foreach (JsonElement addon in addonsElement.EnumerateArray())
                             {
                                 if (addon.TryGetProperty("Price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
                                 {
                                     total += addonPrice * Quantity; // Add addon price to total
+                                            priceOfItem = priceOfItem+ addonPrice * Quantity;
+
+                                        }
+                                    }
                                 }
                             }
-                        }
-                        }
+
+                            itemprice.Add(priceOfItem);
+
 
                         }
 
-                        
+
                     }
                   
                 }
