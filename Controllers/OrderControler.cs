@@ -10,6 +10,8 @@ using System.Xml.Linq;
 using MongoDB.Bson.Serialization.Serializers;
 using System.Collections;
 using System.Text.RegularExpressions;
+using MongoDB.Bson.Serialization.IdGenerators;
+using MongoDB.Bson.Serialization;
 
 namespace backend.Controllers
 {
@@ -109,47 +111,53 @@ namespace backend.Controllers
         {
             var collection = _database.GetCollection<BsonDocument>("Orders");
 
-            var filter = Builders<BsonDocument>.Filter.In("OrderNumber", values);
+            // Convert the string values to int
+            int[] intValues = values.Select(int.Parse).ToArray();
 
+            // Build the filter to retrieve orders by OrderNumber
+            var filter = Builders<BsonDocument>.Filter.In("OrderNumber", intValues);
 
             // Retrieve the documents matching the filter
             var orders = await collection.Find(filter).ToListAsync();
 
-            // Initialize a list to hold all the combined items
-            var combinedItems = new List<object>();
-
-            // Iterate over each order and extract the "Items" array
-            foreach (var order in orders)
+            // Check if we have at least two orders to merge
+            if (orders.Count < 2)
             {
-                // Convert BsonDocument to .NET friendly object
-                var document = BsonTypeMapper.MapToDotNetValue(order) as Dictionary<string, object>;
-
-                // Check if "Items" exists in the document and is a list
-                if (document != null && document.ContainsKey("Items") && document["Items"] is IEnumerable<object> items)
-                {
-                    // Add all items from the current document to the combined list
-                    combinedItems.AddRange(items);
-                }
-
-
-
+                return BadRequest("At least two orders are required for merging.");
             }
 
-            // Create a response object with capitalized property names
+            // Extract "Items" from each order and combine them
+            var combinedItems = new List<object>();
+
+            foreach (var order in orders)
+            {
+                if (order.Contains("Items") && order["Items"].IsBsonArray)
+                {
+                    var items = order["Items"].AsBsonArray;
+                    combinedItems.AddRange(items.Select(item => BsonTypeMapper.MapToDotNetValue(item)));
+                }
+            }
+
+            // Use the first order's OrderNumber for the new combined order
+            int newOrderNumber = orders.First()["OrderNumber"].AsInt32;
+            double totalprice= orders.First()["TotalPrice"].AsDouble;
+            string tablenumber = orders.First()["TableNumber"].AsString;
+            // Create the new combined order
             var response = new
             {
-                Description = $"Combination of {orders.Count()} Tables",
-                Type = "Dine In", // Example type, adjust as necessary
-                Status = "Pending", // Example status, adjust as necessary
+                TableNumber= tablenumber,
+                Description = $"Combination of {orders.Count} Orders",
+                Type = "Dine In",
+                Status = "Pending",
                 Items = combinedItems,
-                Location="Location",
-                DeleiveryCharge=0
+                Location = orders.First()["Location"].AsString, // Use the first order's location
+                DeliveryCharge = orders.First()["DeleiveryCharge"].AsDouble, // Use the first order's delivery charge
+                DateOfOrder = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"), // Set the current time for the combined order
+                TotalPrice= totalprice
             };
 
-            // Return the response with capitalized property names
             return Ok(response);
         }
-
 
 
 
@@ -183,7 +191,7 @@ namespace backend.Controllers
             public async Task<IActionResult> CreateOrder([FromBody] JsonElement jsonElement)
             {
 
-                double TotalPrice = 0;
+                List<double> TotalPrice = new List<double>();
                 int GrossNumber = 0;
                 string jsonString = jsonElement.GetRawText();
                 BsonDocument document = BsonDocument.Parse(jsonString);
@@ -192,19 +200,19 @@ namespace backend.Controllers
                 var newOrder = new Order
                 {
                     TableNumber = document["TableNumber"].AsString,
-                    Type = document["Type"].AsString
+                    Type = "Dine In"
                     // Add other properties as needed
                 };
           
             TotalPrice = CalculateTotalPrice(jsonElement, newOrder.Type);
 
-                GrossNumber = UpdateTheGrossNew(TotalPrice).Result;
+                GrossNumber = UpdateTheGrossNew(TotalPrice[TotalPrice.Count() - 1]).Result;
             int index = 0;
             foreach (var item in document["Items"].AsBsonArray)
             {
-                if(index< itemprice.Count())
+                if(index< TotalPrice.Count()-1)
                 {
-                    item["ItemPrice"] = itemprice[index];
+                    item["ItemPrice"] = TotalPrice[index];
                 }
                 else
                 {
@@ -216,22 +224,22 @@ namespace backend.Controllers
 
             }
 
-            if (newOrder.Type == "Dine In")
-                {
-                    UpdateTableStatus(newOrder.TableNumber, "Taken");
-                }
-                else if (newOrder.Type == "Delivery")
-                {
+            if (newOrder.TableNumber!="NA")
+            {
+                UpdateTableStatus(newOrder.TableNumber, "Taken");
+            }
+            else if (newOrder.Type == "Delivery")
+            {
 
-                }
+            }
 
-                // Add a new sequence value for the table ID
+            // Add a new sequence value for the table ID
 
-                int newSequenceValue = _globalService.SequenceIncrement("OrderNumber").GetAwaiter().GetResult();
+            int newSequenceValue = _globalService.SequenceIncrement("OrderNumber").GetAwaiter().GetResult();
                 document.Add("OrderNumber", newSequenceValue);
                 document.Add("DateOfOrder", DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"));
                 document.Add("GrossNumber", GrossNumber);
-                document.Add("TotalPrice", TotalPrice);
+            document.Add("TotalPrice", TotalPrice[TotalPrice.Count() - 1]);
                 document.Add("Created_by", _globalService.username);
                 await collection.InsertOneAsync(document);
                 return Ok(new { message = "Order created successfully", OrderNumber = newSequenceValue.ToString(), TotalPrice });
@@ -241,109 +249,188 @@ namespace backend.Controllers
             }
 
 
-            [HttpPut("UpdateOrderByOrderNumber/{ordernumber}")]
-            public async Task<IActionResult> UpdateOrderByOrderNumber(int ordernumber, [FromBody] JsonElement jsonElement)
+        [HttpPut("AddAnItem/{ordernumber}")]
+        public async Task<IActionResult> AddAnItem(int ordernumber, [FromBody] JsonElement jsonElement)
+        {
+            var collection = _database.GetCollection<BsonDocument>("Orders");
+            var filter = Builders<BsonDocument>.Filter.Eq("OrderNumber", ordernumber);
+
+            // Retrieve the existing document
+            var existingDocument = await collection.Find(filter).FirstOrDefaultAsync();
+
+            if (existingDocument == null)
             {
-                double TotalNewPrice = 0;
-                double TotalOldPrice = 0;
-                int GrossNumber = 0;
-            string status = "";
-                string oldType = "";
-                string TableNumberOld = "";
-                string jsonString = jsonElement.GetRawText();
-                BsonDocument document = BsonDocument.Parse(jsonString);
+                return NotFound(); 
+            }
 
-                var Order = new Order
-                {
-                    TableNumber = document["TableNumber"].AsString,
-                    Type = document["Type"].AsString,
-                    TotalOldPrice = document["TotalPrice"].AsDouble,
-                    Status = document["Status"].AsString
-                };
+            var currentItems = existingDocument.Contains("Items") ? existingDocument["Items"].AsBsonArray : new BsonArray();
 
-                var collection = _database.GetCollection<BsonDocument>("Orders");
+            var newItem = BsonSerializer.Deserialize<BsonDocument>(jsonElement.ToString());
 
-                // Create a filter to find the order with the specified OrderNumber
-                var filter = Builders<BsonDocument>.Filter.Eq("OrderNumber", ordernumber);
+            currentItems.Add(newItem);
 
-                // Find the order in the collection
-                var orderDocument = await collection.Find(filter).FirstOrDefaultAsync();
+            existingDocument["Items"] = currentItems;
 
-                if (orderDocument == null)
-                {
-                    // Return a 404 if the order is not found
-                    return NotFound($"Order with OrderNumber {ordernumber} not found.");
-                }
+            await collection.ReplaceOneAsync(filter, existingDocument);
 
-                // Access the individual attributes of the existing order
-                TableNumberOld = orderDocument.GetValue("TableNumber").AsString;
-                oldType = orderDocument.GetValue("Type").AsString;
-                TotalOldPrice = orderDocument.GetValue("TotalPrice").AsDouble;
-            
+            var updatedJson = existingDocument.ToJson();
 
-                if (Order.Status=="Closed " || Order.Status == "Altered")
+            var updatedJsonElement = JsonDocument.Parse(updatedJson).RootElement;
+
+            return Ok(updatedJsonElement); 
+        }
+
+
+
+
+        [HttpPut("RemoveAnItem/{ordernumber}")]
+        public async Task<IActionResult> RemoveAnItem(int ordernumber, [FromBody] JsonElement jsonElement)
+        {
+            var collection = _database.GetCollection<BsonDocument>("Orders");
+            var filter = Builders<BsonDocument>.Filter.Eq("OrderNumber", ordernumber);
+
+            // Retrieve the existing document
+            var existingDocument = await collection.Find(filter).FirstOrDefaultAsync();
+
+            if (existingDocument == null)
+            {
+                return NotFound(); // Return 404 if the document doesn't exist
+            }
+
+            // Retrieve the current Items field or initialize a new array if it doesn't exist
+            var currentItems = existingDocument.Contains("Items") ? existingDocument["Items"].AsBsonArray : new BsonArray();
+
+            // Convert JsonElement to BsonDocument for removal
+            var itemToRemove = BsonSerializer.Deserialize<BsonDocument>(jsonElement.ToString());
+
+            // Find the index of the item to remove
+            var itemToRemoveJson = itemToRemove.ToJson();
+            var itemToRemoveBsonDocument = BsonSerializer.Deserialize<BsonDocument>(itemToRemoveJson);
+
+            // Find the first matching item and remove it
+            var itemToRemoveIndex = currentItems.IndexOf(itemToRemoveBsonDocument);
+            if (itemToRemoveIndex != -1)
+            {
+                // Remove only one instance of the item
+                currentItems.RemoveAt(itemToRemoveIndex);
+            }
+
+            // Create a new document to return as JsonElement
+            var newDocument = existingDocument.ToBsonDocument();
+            newDocument["Items"] = currentItems;
+
+            // Convert the new document to JSON and parse it back to JsonDocument
+            var newDocumentJson = newDocument.ToJson();
+            var newJsonElement = JsonDocument.Parse(newDocumentJson).RootElement;
+
+            return Ok(newJsonElement); // Return the modified order as JsonElement without updating the database
+        }
+
+
+
+
+
+
+        [HttpPut("UpdateOrderByOrderNumber/{ordernumber}")]
+        public async Task<IActionResult> UpdateOrderByOrderNumber(int ordernumber, [FromBody] JsonElement jsonElement)
+        {
+            List<double> TotalPrice = new List<double>();
+            double TotalOldPrice = 0;
+            string TableNumberOld = "";
+            string jsonString = jsonElement.GetRawText();
+            BsonDocument newDocument = BsonDocument.Parse(jsonString);
+
+            // Get the collection
+            var collection = _database.GetCollection<BsonDocument>("Orders");
+
+            // Create a filter to find the order with the specified OrderNumber
+            var filter = Builders<BsonDocument>.Filter.Eq("OrderNumber", ordernumber);
+
+            // Find the order in the collection
+            var existingDocument = await collection.Find(filter).FirstOrDefaultAsync();
+
+            if (existingDocument == null)
+            {
+                // Return a 404 if the order is not found
+                return NotFound($"Order with OrderNumber {ordernumber} not found.");
+            }
+
+            // Access the individual attributes of the existing order
+            TableNumberOld = existingDocument.GetValue("TableNumber").AsString;
+            TotalOldPrice = existingDocument.GetValue("TotalPrice").AsDouble;
+
+            // Prepare the updated order details from the new document
+            var updatedOrder = new Order
+            {
+                TableNumber = newDocument["TableNumber"].AsString,
+                TotalOldPrice = newDocument["TotalPrice"].AsDouble,
+                Status = newDocument["Status"].AsString
+            };
+
+            // Update the table statuses based on changes
+            if (updatedOrder.Status == "Closed" || updatedOrder.Status == "Altered")
             {
                 UpdateTableStatus(TableNumberOld, "Available");
-
-            }else
+            }
+            else
             {
-
-           
-
-            // Update table statuses based on changes
-            if (TableNumberOld != Order.TableNumber)
+                // Handle table status changes
+                if (TableNumberOld != "N/A" && updatedOrder.TableNumber != "N/A")
                 {
-                    if (Order.Type == oldType)
-                    {
-                        UpdateTableStatus(TableNumberOld, "Available");
-                        UpdateTableStatus(Order.TableNumber, "Taken");
-                    }
-                    else
-                    {
-                        UpdateTableStatus(Order.TableNumber, "Taken");
-                    }
+                    UpdateTableStatus(TableNumberOld, "Available");
+                    UpdateTableStatus(updatedOrder.TableNumber, "Taken");
                 }
-                else if (Order.Type != oldType)
+                else if (TableNumberOld == "N/A" && updatedOrder.TableNumber != "N/A")
                 {
-                    if (Order.Type == "Dine In")
-                    {
-                        UpdateTableStatus(Order.TableNumber, "Taken");
-                    }
-                    else if (Order.Type == "Delivery")
-                    {
-                        UpdateTableStatus(TableNumberOld, "Available");
-                    }
+                    UpdateTableStatus(updatedOrder.TableNumber, "Taken");
                 }
-
+                else if (TableNumberOld != "N/A" && updatedOrder.TableNumber == "N/A")
+                {
+                    UpdateTableStatus(TableNumberOld, "Available");
+                }
             }
-        
+
             // Calculate new total price
-            TotalNewPrice = CalculateTotalPrice(jsonElement, Order.Type);
+            TotalPrice = CalculateTotalPrice(jsonElement, updatedOrder.Status);
 
-                // Update gross values
-                await UpdateTheGrossNew(-TotalOldPrice);
-                await UpdateTheGrossNew(TotalNewPrice);
-
-                // Update the order with new values
-                var updateDefinition = Builders<BsonDocument>.Update
-                    .Set("TableNumber", Order.TableNumber)
-                    .Set("Type", Order.Type)
-                    .Set("TotalPrice", TotalNewPrice);
-
-                var updateResult = await collection.UpdateOneAsync(filter, updateDefinition);
-
-                if (updateResult.ModifiedCount == 0)
+            // Update items with the new total prices
+            int index = 0;
+            foreach (var item in newDocument["Items"].AsBsonArray)
+            {
+                if (index < TotalPrice.Count)
                 {
-                    return StatusCode(500, "Nothing Chnanged");
+                    item["ItemPrice"] = TotalPrice[index];
                 }
-
-                return Ok(new { message = "Order updated successfully", TotalNewPrice });
+                else
+                {
+                    item["ItemPrice"] = 0; // Default price if out of range
+                }
+                index++;
             }
 
+            // Update the gross values
+            await UpdateTheGrossNew(-TotalOldPrice);
+            await UpdateTheGrossNew(TotalPrice.Last());
+
+            // Update the TotalPrice field in the new document
+            newDocument["TotalPrice"] = TotalPrice.Last();
+
+            // Replace the old document with the new one (including changes)
+            var replaceResult = await collection.ReplaceOneAsync(filter, newDocument);
+
+            if (replaceResult.ModifiedCount == 0)
+            {
+                return StatusCode(500, "Nothing changed");
+            }
+
+            return Ok(new { message = "Order updated successfully" });
+        }
 
 
 
-            [HttpDelete("DeleteOrderByOrderNumber/{orderNumber}")]
+
+
+        [HttpDelete("DeleteOrderByOrderNumber/{orderNumber}")]
             public IActionResult DeleteOrderByOrderNumber(int orderNumber)
             {
 
@@ -439,136 +526,107 @@ namespace backend.Controllers
 
 
 
+      
 
 
 
 
-
-        private double CalculateTotalPrice(JsonElement jsonElement, string stype)
-            {
-                double total = 0;
+        private List<double> CalculateTotalPrice(JsonElement jsonElement, string stype)
+        {
+            double total = 0;
             string itemName = "";
             double priceOfItem = 0;
+            double deleiveryCharge = 0;
+            List<double> itemprice = new List<double>(); // Assuming you meant to store item prices here
 
-
-                if (stype == "Dine In")
-                {
-
-                if (jsonElement.TryGetProperty("Items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
-                {
-
-
-
-                    foreach (JsonElement item in itemsElement.EnumerateArray())
-                    {
-
-                        if (item.TryGetProperty("Name", out JsonElement itemNameElement)) // Change "Name" to the correct property name if needed
-                        {
-                             itemName = itemNameElement.GetString(); 
-                        }
-                        if (item.TryGetProperty("Quantity", out JsonElement quantityElement) && quantityElement.TryGetInt32(out int Quantity))
-                        {
-
-                         
-
-                            if (item.TryGetProperty("StatusNew", out JsonElement statusNewElement) && statusNewElement.GetString() == "Take Away With Dine In")
-                        {
-
-                            if (item.TryGetProperty("PriceDelivery", out JsonElement priceElementNew) && priceElementNew.TryGetDouble(out double priceTakeAway))
-                            {
-                                total += priceTakeAway* Quantity; // Add main item price to total
-                                    priceOfItem = priceTakeAway*Quantity;
-                            }
-
-                            if (item.TryGetProperty("AddOns", out JsonElement addonsElementNew) && addonsElementNew.ValueKind == JsonValueKind.Array)
-                            {
-                                foreach (JsonElement addon in addonsElementNew.EnumerateArray())
-                                {
-                                    if (addon.TryGetProperty("Price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
-                                    {
-                                        total += addonPrice* Quantity; // Add addon price to total
-                                            priceOfItem = priceOfItem + addonPrice*Quantity;
-                                        }
-                                 
-                                }
-                            }
-
-                                itemprice.Add(priceOfItem);
-                        }
-                        else if (item.TryGetProperty("PriceDineIn", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
-                        {
-                            total += price * Quantity; // Add main item price to total
-                                priceOfItem = price * Quantity;
-
-                                // Check for addons and sum their prices
-                                if (item.TryGetProperty("AddOns", out JsonElement addonsElement) && addonsElement.ValueKind == JsonValueKind.Array)
-                            {
-                            foreach (JsonElement addon in addonsElement.EnumerateArray())
-                            {
-                                if (addon.TryGetProperty("Price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
-                                {
-                                    total += addonPrice * Quantity; // Add addon price to total
-                                            priceOfItem = priceOfItem+ addonPrice * Quantity;
-
-                                        }
-                                    }
-                                }
-                            }
-
-                            itemprice.Add(priceOfItem);
-
-
-                        }
-
-
-                    }
-                  
-                }
-
-
-            }
-            else if (stype == "Delivery")
+            if (jsonElement.TryGetProperty("DeleiveryCharge", out JsonElement deleiveryChargeElement) && deleiveryChargeElement.ValueKind == JsonValueKind.Number)
             {
-                if (jsonElement.TryGetProperty("Items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (JsonElement item in itemsElement.EnumerateArray())
-                    {
-                        if (item.TryGetProperty("Quantity", out JsonElement quantityElement) && quantityElement.TryGetInt32(out int Quantity))
-                        {
-                            // Get the main item's price
-                            if (item.TryGetProperty("PriceDelivery", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
-                            {
-                                total += price; // Add main item price to total
-                            }
+                 deleiveryCharge = deleiveryChargeElement.GetDouble();
+            }
 
-                            // Check for addons and sum their prices
-                            if (item.TryGetProperty("AddOns", out JsonElement addonsElement) && addonsElement.ValueKind == JsonValueKind.Array)
+
+            if (jsonElement.TryGetProperty("Items", out JsonElement itemsElement) && itemsElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (JsonElement item in itemsElement.EnumerateArray())
+                {
+
+
+                    if (item.TryGetProperty("Name", out JsonElement itemNameElement)) 
+                    {
+                        itemName = itemNameElement.GetString();
+                    }
+
+                    if (item.TryGetProperty("Quantity", out JsonElement quantityElement) && quantityElement.TryGetInt32(out int Quantity))
+                    {
+                        if (item.TryGetProperty("TypeItem", out JsonElement typeItemElement) && typeItemElement.ValueKind == JsonValueKind.String)
+                        {
+                            string typeItem = typeItemElement.GetString();
+
+
+                            if (typeItem == "Dine In")
                             {
-                                foreach (JsonElement addon in addonsElement.EnumerateArray())
+                       
+                                if (item.TryGetProperty("PriceDineIn", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
                                 {
-                                    if (addon.TryGetProperty("Price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
+                                    total += price * Quantity; 
+                                    priceOfItem = price * Quantity;
+
+                            
+                                    if (item.TryGetProperty("AddOns", out JsonElement addonsElement) && addonsElement.ValueKind == JsonValueKind.Array)
                                     {
-                                        total += addonPrice * Quantity; // Add addon price to total
+                                        foreach (JsonElement addon in addonsElement.EnumerateArray())
+                                        {
+                                            if (addon.TryGetProperty("Price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
+                                            {
+                                                total += addonPrice * Quantity; 
+                                                priceOfItem += addonPrice * Quantity;
+                                            }
+                                        }
                                     }
+                                    itemprice.Add(priceOfItem); 
+                                }
+                            }else if (typeItem == "Delivery" || typeItem == "TakeAway")
+                            {
+                                if (item.TryGetProperty("PriceDelivery", out JsonElement priceElement) && priceElement.TryGetDouble(out double price))
+                                {
+                                    total += price * Quantity;
+                                    priceOfItem = price * Quantity;
+
+
+                                    if (item.TryGetProperty("AddOns", out JsonElement addonsElement) && addonsElement.ValueKind == JsonValueKind.Array)
+                                    {
+                                        foreach (JsonElement addon in addonsElement.EnumerateArray())
+                                        {
+                                            if (addon.TryGetProperty("Price", out JsonElement addonPriceElement) && addonPriceElement.TryGetDouble(out double addonPrice))
+                                            {
+                                                total += addonPrice * Quantity;
+                                                priceOfItem += addonPrice * Quantity;
+                                            }
+                                        }
+                                    }
+                                    itemprice.Add(priceOfItem);
                                 }
                             }
+
                         }
                     }
                 }
+
+                total = total + deleiveryCharge;
+                itemprice.Add(total);
+
             }
-        
 
-            return total;
-            }
-
-
-
-
-
-
-
+            return itemprice;
         }
+
+
+
+
+
+
     }
+}
 
 
 

@@ -187,7 +187,7 @@ var document = result.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList
     {
         { "_id", new BsonDocument
             {
-              { "Type", "$Type" }
+              { "Type", "$Items.TypeItem" }
             }
         },
         { "totalCount", new BsonDocument("$sum","$Items.Quantity") },
