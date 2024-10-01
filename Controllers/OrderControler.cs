@@ -257,28 +257,32 @@ namespace backend.Controllers
 
             // Retrieve the existing document
             var existingDocument = await collection.Find(filter).FirstOrDefaultAsync();
-
             if (existingDocument == null)
             {
-                return NotFound(); 
+                return NotFound($"Order with number {ordernumber} not found.");
             }
 
-            var currentItems = existingDocument.Contains("Items") ? existingDocument["Items"].AsBsonArray : new BsonArray();
+            // Parse the JsonElement to a BsonDocument
+            var newItem = BsonDocument.Parse(jsonElement.ToString());
 
-            var newItem = BsonSerializer.Deserialize<BsonDocument>(jsonElement.ToString());
+            // Check if the 'item' field exists and is an array
+            if (existingDocument.Contains("Items") && existingDocument["Items"].IsBsonArray)
+            {
+                // Add the new item to the 'item' array
+                var itemsArray = existingDocument["Items"].AsBsonArray;
+                itemsArray.Add(newItem);
+            }
+            else
+            {
+                // If 'item' doesn't exist or isn't an array, create a new array and add the item
+                existingDocument["Items"] = new BsonArray { newItem };
+            }
+            var document = BsonTypeMapper.MapToDotNetValue(existingDocument);
 
-            currentItems.Add(newItem);
-
-            existingDocument["Items"] = currentItems;
-
-            await collection.ReplaceOneAsync(filter, existingDocument);
-
-            var updatedJson = existingDocument.ToJson();
-
-            var updatedJsonElement = JsonDocument.Parse(updatedJson).RootElement;
-
-            return Ok(updatedJsonElement); 
+            // Return the modified document as JSON without updating the database
+            return Ok(document);
         }
+
 
 
 

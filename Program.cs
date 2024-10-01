@@ -1,37 +1,43 @@
 using backend;
 using backend.Services;
 using MongoDB.Driver;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Hosting.WindowsServices;
+using Microsoft.AspNetCore.Hosting;
+using backend.Models;
+using WorkerService1;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers() // Changed to AddControllers
+builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        options.JsonSerializerOptions.PropertyNamingPolicy = null; // This will keep property names as they are defined
+        options.JsonSerializerOptions.PropertyNamingPolicy = null;
     });
-builder.Services.AddControllersWithViews(); // Keep this if you still need MVC views
+builder.Services.AddControllersWithViews();
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigin", builder =>
     {
-        builder.WithOrigins("http://localhost:3000") // Specify your frontend origin
-               .AllowAnyMethod()                     // Allow all HTTP methods (GET, POST, etc.)
-               .AllowAnyHeader()                     // Allow all headers
-               .AllowCredentials();                  // Allow credentials (e.g., cookies)
+        builder.WithOrigins("http://localhost:3000")
+               .AllowAnyMethod()
+               .AllowAnyHeader()
+               .AllowCredentials();
     });
 });
 
 // Configure MongoDB settings
 builder.Services.Configure<DatabaseSettings>(
     builder.Configuration.GetSection(nameof(DatabaseSettings)));
+builder.Services.AddHostedService<Worker>();
 
 // Register MongoClient with specific connection string
 builder.Services.AddSingleton<IMongoClient>(s =>
     new MongoClient("mongodb+srv://joehadchity:J1j2j3j4@escale-royale-cluster.lann0.mongodb.net/?retryWrites=true&w=majority&authSource=admin&authMechanism=SCRAM-SHA-1&appName=escale-royale-cluster"));
 
-builder.Services.AddSingleton<GlobalService>(); // Register GlobalService
+builder.Services.AddSingleton<GlobalService>();
 
 // Register IMongoDatabase
 builder.Services.AddSingleton(s =>
@@ -47,22 +53,30 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-
-// Apply CORS before routing and authorization
 app.UseCors("AllowSpecificOrigin");
-
 app.UseRouting();
-
 app.UseAuthorization();
-
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
+// Run the app
 app.Run();
+
+// Create the host builder
+IHostBuilder CreateHostBuilder(string[] args) =>
+    Host.CreateDefaultBuilder(args)
+    .UseWindowsService() // Add parentheses to invoke the method
+    .ConfigureWebHostDefaults(webBuilder =>
+    {
+        webBuilder.UseStartup<Worker>();
+    });
+
+
+// Build and run the host
+CreateHostBuilder(args).Build().Run();
