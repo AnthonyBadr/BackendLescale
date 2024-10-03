@@ -205,7 +205,8 @@ namespace backend.Controllers
                 };
           
             TotalPrice = CalculateTotalPrice(jsonElement, newOrder.Type);
-
+            double test = TotalPrice[0];
+            string name = _globalService.username;
                 GrossNumber = UpdateTheGrossNew(TotalPrice[TotalPrice.Count() - 1]).Result;
             int index = 0;
             foreach (var item in document["Items"].AsBsonArray)
@@ -255,79 +256,109 @@ namespace backend.Controllers
             var collection = _database.GetCollection<BsonDocument>("Orders");
             var filter = Builders<BsonDocument>.Filter.Eq("OrderNumber", ordernumber);
 
-            // Retrieve the existing document
+
             var existingDocument = await collection.Find(filter).FirstOrDefaultAsync();
             if (existingDocument == null)
             {
                 return NotFound($"Order with number {ordernumber} not found.");
             }
 
-            // Parse the JsonElement to a BsonDocument
+     
             var newItem = BsonDocument.Parse(jsonElement.ToString());
 
-            // Check if the 'item' field exists and is an array
             if (existingDocument.Contains("Items") && existingDocument["Items"].IsBsonArray)
             {
-                // Add the new item to the 'item' array
+          
                 var itemsArray = existingDocument["Items"].AsBsonArray;
                 itemsArray.Add(newItem);
             }
             else
             {
-                // If 'item' doesn't exist or isn't an array, create a new array and add the item
+           
                 existingDocument["Items"] = new BsonArray { newItem };
             }
             var document = BsonTypeMapper.MapToDotNetValue(existingDocument);
 
-            // Return the modified document as JSON without updating the database
+          
             return Ok(document);
         }
 
 
 
 
-
-        [HttpPut("RemoveAnItem/{ordernumber}")]
-        public async Task<IActionResult> RemoveAnItem(int ordernumber, [FromBody] JsonElement jsonElement)
+        [HttpPut("RemoveItem/{ordernumber}")]
+        public async Task<IActionResult> RemoveItem(int ordernumber, [FromBody] JsonElement jsonElement)
         {
             var collection = _database.GetCollection<BsonDocument>("Orders");
             var filter = Builders<BsonDocument>.Filter.Eq("OrderNumber", ordernumber);
 
-            // Retrieve the existing document
             var existingDocument = await collection.Find(filter).FirstOrDefaultAsync();
 
             if (existingDocument == null)
             {
-                return NotFound(); // Return 404 if the document doesn't exist
+                return NotFound("Order not found.");
             }
 
-            // Retrieve the current Items field or initialize a new array if it doesn't exist
-            var currentItems = existingDocument.Contains("Items") ? existingDocument["Items"].AsBsonArray : new BsonArray();
-
-            // Convert JsonElement to BsonDocument for removal
-            var itemToRemove = BsonSerializer.Deserialize<BsonDocument>(jsonElement.ToString());
-
-            // Find the index of the item to remove
-            var itemToRemoveJson = itemToRemove.ToJson();
-            var itemToRemoveBsonDocument = BsonSerializer.Deserialize<BsonDocument>(itemToRemoveJson);
-
-            // Find the first matching item and remove it
-            var itemToRemoveIndex = currentItems.IndexOf(itemToRemoveBsonDocument);
-            if (itemToRemoveIndex != -1)
+            if (existingDocument.Contains("Items"))
             {
-                // Remove only one instance of the item
-                currentItems.RemoveAt(itemToRemoveIndex);
+                var itemsArray = existingDocument["Items"].AsBsonArray;
+
+                for (int i = 0; i < itemsArray.Count; i++)
+                {
+                    var currentItem = itemsArray[i].ToJson();
+                    JsonElement citem = JsonSerializer.Deserialize<JsonElement>(currentItem);
+
+
+                    var citemWithoutPrice = RemoveField(citem, "ItemPrice");
+
+                    if (citemWithoutPrice.GetRawText() == jsonElement.GetRawText()) // Assuming the structure is similar
+                    {
+                        itemsArray.RemoveAt(i);
+                        break; 
+                    }
+                }
+
+                // Replace the "Items" array in the existing document
+                existingDocument["Items"] = itemsArray;
+
+                // Update the document in the database (optional)
+                await collection.ReplaceOneAsync(filter, existingDocument);
+
+                // Return the modified document as JSON
+                return Ok(existingDocument.ToJson()); // Convert the document to JSON and return it
             }
 
-            // Create a new document to return as JsonElement
-            var newDocument = existingDocument.ToBsonDocument();
-            newDocument["Items"] = currentItems;
+            return NotFound("Item not found in the order.");
+        }
 
-            // Convert the new document to JSON and parse it back to JsonDocument
-            var newDocumentJson = newDocument.ToJson();
-            var newJsonElement = JsonDocument.Parse(newDocumentJson).RootElement;
+        private JsonElement RemoveField(JsonElement element, string fieldName)
+        {
+            using (JsonDocument doc = JsonDocument.Parse(element.GetRawText()))
+            {
+                var root = doc.RootElement;
+                using (var memoryStream = new MemoryStream())
+                using (var jsonWriter = new Utf8JsonWriter(memoryStream))
+                {
+                    jsonWriter.WriteStartObject();
+                    foreach (var property in root.EnumerateObject())
+                    {
+                        if (property.Name != fieldName) 
+                        {
+                            property.WriteTo(jsonWriter);
+                        }
+                    }
+                    jsonWriter.WriteEndObject();
+                    jsonWriter.Flush();
 
-            return Ok(newJsonElement); // Return the modified order as JsonElement without updating the database
+                    memoryStream.Position = 0;
+
+                    using (var reader = new StreamReader(memoryStream))
+                    {
+                        var newJson = reader.ReadToEnd();
+                        return JsonSerializer.Deserialize<JsonElement>(newJson);
+                    }
+                }
+            }
         }
 
 
@@ -341,6 +372,7 @@ namespace backend.Controllers
             List<double> TotalPrice = new List<double>();
             double TotalOldPrice = 0;
             string TableNumberOld = "";
+            string DateOfOrder = "";
             string jsonString = jsonElement.GetRawText();
             BsonDocument newDocument = BsonDocument.Parse(jsonString);
 
@@ -362,12 +394,12 @@ namespace backend.Controllers
             // Access the individual attributes of the existing order
             TableNumberOld = existingDocument.GetValue("TableNumber").AsString;
             TotalOldPrice = existingDocument.GetValue("TotalPrice").AsDouble;
+            DateOfOrder = existingDocument.GetValue("DateOfOrder").AsString;
 
             // Prepare the updated order details from the new document
             var updatedOrder = new Order
             {
                 TableNumber = newDocument["TableNumber"].AsString,
-                TotalOldPrice = newDocument["TotalPrice"].AsDouble,
                 Status = newDocument["Status"].AsString
             };
 
@@ -394,10 +426,9 @@ namespace backend.Controllers
                 }
             }
 
-            // Calculate new total price
+         
             TotalPrice = CalculateTotalPrice(jsonElement, updatedOrder.Status);
 
-            // Update items with the new total prices
             int index = 0;
             foreach (var item in newDocument["Items"].AsBsonArray)
             {
@@ -407,19 +438,20 @@ namespace backend.Controllers
                 }
                 else
                 {
-                    item["ItemPrice"] = 0; // Default price if out of range
+                    item["ItemPrice"] = 0; 
                 }
                 index++;
             }
 
-            // Update the gross values
-            await UpdateTheGrossNew(-TotalOldPrice);
+            int grossNumber=await UpdateTheGrossNew(-TotalOldPrice);
             await UpdateTheGrossNew(TotalPrice.Last());
 
-            // Update the TotalPrice field in the new document
-            newDocument["TotalPrice"] = TotalPrice.Last();
+            newDocument.Add("TotalPrice", TotalPrice.Last());
+            newDocument.Add("GrossNumber", grossNumber);
+            newDocument.Add("OrderNumber", ordernumber);
+            newDocument.Add("DateOfOrder", DateOfOrder);
 
-            // Replace the old document with the new one (including changes)
+            
             var replaceResult = await collection.ReplaceOneAsync(filter, newDocument);
 
             if (replaceResult.ModifiedCount == 0)

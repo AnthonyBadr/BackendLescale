@@ -1,11 +1,8 @@
 using backend;
 using backend.Services;
 using MongoDB.Driver;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Hosting.WindowsServices;
 using Microsoft.AspNetCore.Hosting;
 using backend.Models;
-using WorkerService1;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,7 +28,6 @@ builder.Services.AddCors(options =>
 // Configure MongoDB settings
 builder.Services.Configure<DatabaseSettings>(
     builder.Configuration.GetSection(nameof(DatabaseSettings)));
-builder.Services.AddHostedService<Worker>();
 
 // Register MongoClient with specific connection string
 builder.Services.AddSingleton<IMongoClient>(s =>
@@ -65,18 +61,4 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-// Run the app
 app.Run();
-
-// Create the host builder
-IHostBuilder CreateHostBuilder(string[] args) =>
-    Host.CreateDefaultBuilder(args)
-    .UseWindowsService() // Add parentheses to invoke the method
-    .ConfigureWebHostDefaults(webBuilder =>
-    {
-        webBuilder.UseStartup<Worker>();
-    });
-
-
-// Build and run the host
-CreateHostBuilder(args).Build().Run();

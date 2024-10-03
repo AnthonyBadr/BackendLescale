@@ -29,15 +29,21 @@ namespace backend.Controllers
             List<ReportItemlist> RTL = new List<ReportItemlist>();
             var grossCollection = _database.GetCollection<BsonDocument>("Gross");
             var reportsCollection = _database.GetCollection<BsonDocument>("Reports");
+            int grossNumber;
+            var sequenceCollection = _database.GetCollection<BsonDocument>("Sequence");
 
+            // Create the filter to find the document with _id = "GrossNumber"
+            var filter = Builders<BsonDocument>.Filter.Eq("_id", "GrossNumber");
 
-            // Find all gross documents with status "Semi-Closed"
-            var filterGross = Builders<BsonDocument>.Filter.Eq("Status", "Semi-Closed");
+            // Find the document
+            var documentgross = await sequenceCollection.Find(filter).FirstOrDefaultAsync();
+            grossNumber= documentgross["sequenceValue"].AsInt32;
+            var filterGross = Builders<BsonDocument>.Filter.Eq("GrossNumber", grossNumber);
             var grossDocuments = grossCollection.Find(filterGross).FirstOrDefault();
 
             if (grossDocuments == null)
             {
-                throw new Exception("Start your day please.");
+                throw new Exception("Close your day please.");
             }
 
             if (!grossDocuments.Contains("GrossNumber"))
@@ -45,7 +51,6 @@ namespace backend.Controllers
                 throw new Exception("GrossNumber field is missing in the document.");
             }
             int newSequenceValue = _globalService.SequenceIncrement("ReportNumber").GetAwaiter().GetResult();
-            int grossNumber = grossDocuments["GrossNumber"].AsInt32;
             var orderCollection = _database.GetCollection<BsonDocument>("Orders");
 
             // Define your filter condition (adjust this to your needs)
@@ -60,6 +65,8 @@ namespace backend.Controllers
                     { "totalSum", new BsonDocument("$sum", "$TotalPrice") } 
                 })
                 .FirstOrDefaultAsync(); 
+
+
 
             var aggregateResult2 = await orderCollection.Aggregate()
                .Match(filterOrder) 
@@ -84,7 +91,7 @@ namespace backend.Controllers
     new BsonDocument("$unwind", "$Items"), 
     new BsonDocument("$group", new BsonDocument
     {
-        { "_id", new BsonDocument
+        { "_id", new BsonDocument   
             {
                 { "ItemName", "$Items.Name" }  
             }
