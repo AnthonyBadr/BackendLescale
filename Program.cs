@@ -3,6 +3,9 @@ using backend.Services;
 using MongoDB.Driver;
 using Microsoft.AspNetCore.Hosting;
 using backend.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +46,27 @@ builder.Services.AddSingleton(s =>
     return client.GetDatabase(databaseName);
 });
 
+// Configure JWT authentication
+var key = Encoding.ASCII.GetBytes("yourSecretKey");
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = "yourIssuer",
+        ValidAudience = "yourAudience",
+        IssuerSigningKey = new SymmetricSecurityKey(key)
+    };
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -56,6 +80,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseCors("AllowSpecificOrigin");
 app.UseRouting();
+app.UseAuthentication(); // Add this line
 app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",

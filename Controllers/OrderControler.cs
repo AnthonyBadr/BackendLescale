@@ -197,14 +197,15 @@ namespace backend.Controllers
                 BsonDocument document = BsonDocument.Parse(jsonString);
                 var collection = _database.GetCollection<BsonDocument>("Orders");
 
-                var newOrder = new Order
-                {
-                    TableNumber = document["TableNumber"].AsString,
-                    Type = "Dine In"
+            var newOrder = new Order
+            {
+                TableNumber = document["TableNumber"].AsString,
+                Type = "Dine In",
+                    DeleiveryCharge = document["DeliveryCharge"].AsDouble
                     // Add other properties as needed
                 };
           
-            TotalPrice = CalculateTotalPrice(jsonElement, newOrder.Type);
+            TotalPrice = CalculateTotalPrice(jsonElement);
             double test = TotalPrice[0];
             string name = _globalService.username;
                 GrossNumber = UpdateTheGrossNew(TotalPrice[TotalPrice.Count() - 1]).Result;
@@ -217,7 +218,7 @@ namespace backend.Controllers
                 }
                 else
                 {
-                    item["ItemPrice"] = 0; // Default rating if out of range (optional)
+                    item["ItemPrice"] = 0; 
                 }
 
                 index++;
@@ -228,11 +229,19 @@ namespace backend.Controllers
             if (newOrder.TableNumber!="NA")
             {
                 UpdateTableStatus(newOrder.TableNumber, "Taken");
-            }
-            else if (newOrder.Type == "Delivery")
-            {
+                document.Add("TypeOfOrder", "Dine In");
 
             }
+            else if (newOrder.DeleiveryCharge > 0)
+            {
+                document.Add("TypeOfOrder", "Delivery");
+
+            }else
+            {
+                document.Add("TypeOfOrder", "Take Away");
+
+            }
+
 
             // Add a new sequence value for the table ID
 
@@ -427,7 +436,7 @@ namespace backend.Controllers
             }
 
          
-            TotalPrice = CalculateTotalPrice(jsonElement, updatedOrder.Status);
+            TotalPrice = CalculateTotalPrice(jsonElement);
 
             int index = 0;
             foreach (var item in newDocument["Items"].AsBsonArray)
@@ -567,7 +576,7 @@ namespace backend.Controllers
 
 
 
-        private List<double> CalculateTotalPrice(JsonElement jsonElement, string stype)
+        private List<double> CalculateTotalPrice(JsonElement jsonElement)
         {
             double total = 0;
             string itemName = "";
