@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Identity.Data;
 using MongoDB.Bson.Serialization.IdGenerators;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using ZstdSharp.Unsafe;
+using backend.Services;
 
 namespace backend.Controllers
 {
@@ -17,11 +18,14 @@ namespace backend.Controllers
 
         private readonly ILogger<IngredientsController> _logger;
         private readonly IMongoDatabase _database;
+        private readonly GlobalService _globalService;
 
-        public IngredientsController(ILogger<IngredientsController> logger, IMongoDatabase database)
+        public IngredientsController(ILogger<IngredientsController> logger, IMongoDatabase database, GlobalService globalService)
         {
             _logger = logger;
             _database = database;
+            _globalService = globalService;
+
         }
         public IActionResult Index()
         {
@@ -79,10 +83,8 @@ namespace backend.Controllers
         {
             var collection = _database.GetCollection<BsonDocument>("Ingredients");
 
-            // Create a filter to find documents that have the category as a key (e.g., "Dairy")
             var filter = Builders<BsonDocument>.Filter.Exists(categoryName);
 
-            // Find documents that match the filter
             var documents = await collection.Find(filter).ToListAsync();
 
             if (documents.Count == 0)
@@ -90,10 +92,8 @@ namespace backend.Controllers
                 return NotFound($"No documents found for category '{categoryName}'.");
             }
 
-            // Convert documents to a list of JSON objects
             var jsonResult = documents.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
-            // Return the data as JSON
             return Json(jsonResult);
         }
 
@@ -114,9 +114,7 @@ namespace backend.Controllers
 
 
 
-        //    {
-        //"Dairy": []
-        //}
+     
 
         [HttpDelete("RemoveACategory")]
         public async Task<IActionResult> RemoveACategory([FromBody] JsonElement jsonElement)
@@ -141,6 +139,7 @@ namespace backend.Controllers
 
                     if (deleteResult.DeletedCount > 0)
                     {
+                        _globalService.LogAction($"Ingredient Category Removed '{categoryName}' created.", "Created");
                         return Ok($"Document(s) with category '{categoryName}' have been deleted.");
                     }
                     else
@@ -198,6 +197,8 @@ namespace backend.Controllers
 
                         if (updateResult.ModifiedCount > 0)
                         {
+                            _globalService.LogAction($"Key '{oldKey}' has been updated to '{newKey}", "Updated");
+
                             return Ok($"Key '{oldKey}' has been updated to '{newKey}' in {updateResult.ModifiedCount} document(s).");
                         }
                         else
@@ -256,6 +257,7 @@ namespace backend.Controllers
 
                     // Insert the new document
                     await collection.InsertOneAsync(document);
+                    _globalService.LogAction($"Ingredient '{typeOfIngredient}' created.", "Created");
 
                     return Ok("Document created successfully.");
                 }

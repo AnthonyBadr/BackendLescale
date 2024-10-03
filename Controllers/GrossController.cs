@@ -89,6 +89,7 @@ namespace backend.Controllers
 
                 // Log the action and insert the new table
                 await grossCollection.InsertOneAsync(document);
+                _globalService.LogAction($"Gross '{newSequenceValue}' created.", "Created");
 
                 return Ok("Gross added successfully");
             }

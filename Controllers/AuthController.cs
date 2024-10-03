@@ -8,9 +8,6 @@ using Microsoft.AspNetCore.Identity.Data;
 using backend.Services;
 using System.Text;
 using System.Security.Cryptography;
-using System.Security.Claims;
-using System.IdentityModel.Tokens.Jwt;
-using Microsoft.IdentityModel.Tokens;
 
 namespace backend.Controllers
 {
@@ -68,23 +65,9 @@ namespace backend.Controllers
                     // Compare the hashed passwords
                     if (hashedPassword == storedHashedPassword)
                     {
-                        // Generate JWT token
-                        var tokenHandler = new JwtSecurityTokenHandler();
-                        var key = Encoding.ASCII.GetBytes("yourSecretKey");
-                        var tokenDescriptor = new SecurityTokenDescriptor
-                        {
-                            Subject = new ClaimsIdentity(new Claim[]
-                            {
-                        new Claim(ClaimTypes.Name, Username)
-                            }),
-                            Expires = DateTime.UtcNow.AddHours(1),
-                            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-                        };
-                        var token = tokenHandler.CreateToken(tokenDescriptor);
-                        var tokenString = tokenHandler.WriteToken(token);
-
-                        // Return the token
-                        return Ok(new { Token = tokenString });
+                        _globalService.username = Username;
+                        // Return the user document without any deserialization into booleans
+                        return Ok(userDocument.ToJson());
                     }
                     else
                     {
@@ -98,8 +81,18 @@ namespace backend.Controllers
             }
         }
 
-    }
 
+
+        [HttpPost("LogOut")]
+        public async Task<IActionResult> LogOut([FromBody] JsonElement jsonElement)
+        {
+            _globalService.username = "N/A";
+
+
+            return Ok();
+
+        }
+    }
 }
 
 
