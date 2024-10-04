@@ -47,7 +47,7 @@ namespace backend.Controllers
 
 
         [HttpGet("GetItemsByCategory/{categoryName}")]
-        public IActionResult GetItemsByCategory(string categoryName)
+        public IActionResult GetItemsByCategory(string categoryName, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             if (string.IsNullOrEmpty(categoryName))
             {
@@ -56,15 +56,23 @@ namespace backend.Controllers
 
             var collection = _database.GetCollection<BsonDocument>("Item");
             var filter = Builders<BsonDocument>.Filter.Eq("CategoryName", categoryName);
-            var items = collection.Find(filter).ToList();
+
+            // Apply pagination using Skip and Limit
+            var items = collection.Find(filter)
+                                  .Skip((pageNumber - 1) * pageSize)
+                                  .Limit(pageSize)
+                                  .ToList();
 
             if (items == null || items.Count == 0)
             {
                 return NotFound($"No items found for category '{categoryName}'.");
             }
+
             var jsonDocuments = items.Select(doc => BsonTypeMapper.MapToDotNetValue(doc));
             return Ok(jsonDocuments);
         }
+
+
 
 
         [HttpPost("CreateItem")]
