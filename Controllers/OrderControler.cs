@@ -208,10 +208,11 @@ namespace backend.Controllers
             {
                 TableNumber = document["TableNumber"].AsString,
                 Type = "Dine In",
-                    DeleiveryCharge = document["DeliveryCharge"].AsDouble,
+                DeleiveryCharge = document["DeliveryCharge"] != null ? Convert.ToDouble(document["DeliveryCharge"]) : 0.0, // Default to 0.0 if null
                 PaymentType = document["PaymentType"].AsString
             };
-          
+
+
             TotalPrice = CalculateTotalPrice(jsonElement);
             double test = TotalPrice[0];
             string name = _globalService.username;
