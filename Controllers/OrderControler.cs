@@ -58,28 +58,35 @@ namespace backend.Controllers
         }
 
 
+
         [HttpGet("GetOrderByDate")]
-        public async Task<IActionResult> GetOrderByOrderNumber([FromQuery] string date)
+        public async Task<IActionResult> GetOrderByOrderNumber([FromQuery] string date, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             var collection = _database.GetCollection<BsonDocument>("Orders");
 
             // Create a filter to find the order with the specified date (first 10 characters)
             var filter = Builders<BsonDocument>.Filter.Regex("DateOfOrder", new BsonRegularExpression($"^{date}"));
 
-            // Find the order in the collection
-            var orderDocuments =  collection.Find(filter).ToList();
-            if (orderDocuments == null)
+            // Apply pagination with Skip and Limit
+            var orderDocuments = collection.Find(filter)
+                                           .Skip((pageNumber - 1) * pageSize)
+                                           .Limit(pageSize)
+                                           .ToList();
+
+            if (orderDocuments == null || orderDocuments.Count == 0)
             {
-                // Return a 404 if the order is not found
-                return NotFound($"Order with date {date} not found.");
+                // Return a 404 if no orders are found for the specified date
+                return NotFound($"No orders found with date {date}.");
             }
 
-            // Map the BSON document to a .NET object
+            // Map the BSON documents to .NET objects
             var document = orderDocuments.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
-            // Return the found order
+            // Return the paginated result
             return Json(document);
         }
+
+
 
 
         [HttpGet("GetOrderByStatus/{Status}")]
