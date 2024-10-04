@@ -201,7 +201,7 @@ namespace backend.Controllers
             {
                 TableNumber = document["TableNumber"].AsString,
                 Type = "Dine In",
-                    DeleiveryCharge = document["DeleiveryCharge"].AsDouble
+                    DeleiveryCharge = document["DeliveryCharge"].AsDouble
                     // Add other properties as needed
                 };
           
