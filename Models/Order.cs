@@ -25,6 +25,7 @@ namespace backend.Models
 
         public int GrossNumber { get; set; }
 
+        public string PaymentType { get; set; }
 
         public double DeleiveryCharge { get; set; }
 

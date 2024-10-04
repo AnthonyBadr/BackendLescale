@@ -208,14 +208,23 @@ namespace backend.Controllers
             {
                 TableNumber = document["TableNumber"].AsString,
                 Type = "Dine In",
-                    DeleiveryCharge = document["DeliveryCharge"].AsDouble
-                    // Add other properties as needed
-                };
+                    DeleiveryCharge = document["DeliveryCharge"].AsDouble,
+                PaymentType = document["PaymentType"].AsString
+            };
           
             TotalPrice = CalculateTotalPrice(jsonElement);
             double test = TotalPrice[0];
             string name = _globalService.username;
-                GrossNumber = UpdateTheGrossNew(TotalPrice[TotalPrice.Count() - 1]).Result;
+            if (newOrder.PaymentType == "Cash")
+            {
+                GrossNumber = UpdateTheGrossNewTest(TotalPrice[TotalPrice.Count() - 1], TotalPrice[TotalPrice.Count() - 1]).Result;
+
+            }
+            else
+            {
+                GrossNumber = UpdateTheGrossNewTest(TotalPrice[TotalPrice.Count() - 1],0).Result;
+
+            }
             int index = 0;
             foreach (var item in document["Items"].AsBsonArray)
             {
@@ -563,10 +572,54 @@ namespace backend.Controllers
 
 
 
+        public async Task<int> UpdateTheGrossNewTest(double amount,double cashAmount)
+        {
+            var grossCollection = _database.GetCollection<BsonDocument>("Gross");
+
+            var filterGross = Builders<BsonDocument>.Filter.Eq("Status", "Open");
+            var theGross = await grossCollection.Find(filterGross).FirstOrDefaultAsync();
+
+            if (theGross == null)
+            {
+                throw new Exception("Start your day please.");
+            }
+
+            if (!theGross.Contains("GrossNumber"))
+            {
+                throw new Exception("GrossNumber field is missing in the document.");
+            }
+
+            int grossNumber = theGross["GrossNumber"].AsInt32;
+
+            // Debug statement to log the document found by the filter
+            Console.WriteLine(theGross.ToJson());
+
+            var update = Builders<BsonDocument>.Update
+                                    .Combine(
+                                        Builders<BsonDocument>.Update.Inc("TotalGross", amount),
+                                        Builders<BsonDocument>.Update.Inc("CashGross", cashAmount)
+                                    );
+
+
+            var updateResult = await grossCollection.UpdateOneAsync(filterGross, update);
+
+            // Debug statement to log the update result
+            Console.WriteLine($"Matched Count: {updateResult.MatchedCount}, Modified Count: {updateResult.ModifiedCount}");
+
+            if (updateResult.ModifiedCount == 0)
+            {
+                throw new Exception("No updates were made to the gross document.");
+            }
+
+            return grossNumber;
+        }
 
 
 
-            private async void UpdateTableStatus(string TableNumber, string Status)
+
+
+
+        private async void UpdateTableStatus(string TableNumber, string Status)
             {
                 var tableCollection = _database.GetCollection<BsonDocument>("Table");
                 var update = Builders<BsonDocument>.Update.Set("Status", Status);
