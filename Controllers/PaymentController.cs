@@ -48,20 +48,31 @@ namespace backend.Controllers
             return Json(document);
         }
 
-        
+
 
         [HttpGet("GetAllPayment")]
-        public async Task<IActionResult> GetAllPayment()
+        public async Task<IActionResult> GetAllPayment([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             var collection = _database.GetCollection<BsonDocument>("Payment");
-            var documents = await collection.Find(new BsonDocument()).ToListAsync();
+
+            // Apply pagination using Skip and Limit
+            var documents = await collection.Find(new BsonDocument())
+                                            .Skip((pageNumber - 1) * pageSize)
+                                            .Limit(pageSize)
+                                            .ToListAsync();
+
+            if (documents == null || documents.Count == 0)
+            {
+                return NotFound("No payment records found.");
+            }
 
             // Convert documents to a list of JSON objects
             var jsonResult = documents.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
-            // Return the data as JSON
+            // Return the paginated data as JSON
             return Json(jsonResult);
         }
+
 
 
         [HttpPost("CreatePayment")]
