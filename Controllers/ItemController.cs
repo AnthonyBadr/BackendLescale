@@ -25,19 +25,25 @@ namespace backend.Controllers
             _globalService = globalService;
         }
 
-
+        //Anthony Badr finialised this
         [HttpGet("GetAllItems")]
-        public IActionResult GetAllItems()
+        public IActionResult GetAllItems([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             var collection = _database.GetCollection<BsonDocument>("Item");
-            var documents = collection.Find(new BsonDocument()).ToList();
 
-            // Convert documents to a list of JSON objects
+            var sortDefinition = Builders<BsonDocument>.Sort.Ascending("CategoryName");
+
+            var documents = collection.Find(new BsonDocument())
+                                      .Sort(sortDefinition)
+                                      .Skip((pageNumber - 1) * pageSize)
+                                      .Limit(pageSize)
+                                      .ToList();
+
             var jsonResult = documents.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
-            // Return the data as JSON
             return Json(jsonResult);
         }
+
 
 
         [HttpGet("GetItemsByCategory/{categoryName}")]
