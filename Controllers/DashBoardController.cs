@@ -42,6 +42,24 @@ namespace backend.Controllers
             return Ok(new { TotalGross = totalGross });
         }
 
+        [HttpPost("CreateTotalRevenueByDate")]
+        public async Task<IActionResult> CreateTotalRevenueByDate()
+        {
+            var grossCollection = _database.GetCollection<BsonDocument>("Gross");
+
+            var result = await grossCollection.Aggregate()
+                .Sort(new BsonDocument("DateOfGross", 1)) // Sort by DateOfGross in ascending order
+                .Group(new BsonDocument
+                {
+            { "_id", BsonNull.Value },
+            { "TotalGross", new BsonDocument("$sum", "$TotalGross") }
+                })
+                .FirstOrDefaultAsync();
+
+            var totalGross = result?["TotalGross"].ToDouble() ?? 0;
+
+            return Ok(new { TotalGross = totalGross });
+        }
 
 
 
