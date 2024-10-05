@@ -543,7 +543,7 @@ namespace backend.Controllers
                 var deleteResult = collection.DeleteOne(filter);
 
                 if (deleteResult.DeletedCount == 0)
-                {
+                {  
                     return NotFound();
                 }
 
@@ -595,7 +595,7 @@ namespace backend.Controllers
 
 
 
-        public async Task<int> UpdateTheGrossNewTest(double amount,double cashAmount)
+        public async Task<int> UpdateTheGrossNewTest(double amount, double cashAmount)
         {
             var grossCollection = _database.GetCollection<BsonDocument>("Gross");
 
@@ -612,17 +612,20 @@ namespace backend.Controllers
                 throw new Exception("GrossNumber field is missing in the document.");
             }
 
-            int grossNumber = theGross["GrossNumber"].AsInt32;
+            int grossNumber = theGross["GrossNumber"].BsonType == BsonType.Int32 ? theGross["GrossNumber"].AsInt32 : throw new Exception("GrossNumber is not a valid integer.");
 
             // Debug statement to log the document found by the filter
             Console.WriteLine(theGross.ToJson());
 
-            var update = Builders<BsonDocument>.Update
-                                    .Combine(
-                                        Builders<BsonDocument>.Update.Inc("TotalGross", amount),
-                                        Builders<BsonDocument>.Update.Inc("CashGross", cashAmount)
-                                    );
+          
+            // Log the values before updating
+            Console.WriteLine($"Amount: {amount}, Cash Amount: {cashAmount}");
 
+            var update = Builders<BsonDocument>.Update
+                .Combine(
+                    Builders<BsonDocument>.Update.Inc("TotalGross", amount),
+                    Builders<BsonDocument>.Update.Inc("CashGross", cashAmount)
+                );
 
             var updateResult = await grossCollection.UpdateOneAsync(filterGross, update);
 
@@ -636,6 +639,7 @@ namespace backend.Controllers
 
             return grossNumber;
         }
+
 
 
 
