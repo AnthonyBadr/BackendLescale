@@ -404,6 +404,7 @@ namespace backend.Controllers
             List<double> TotalPrice = new List<double>();
             double TotalOldPrice = 0;
             string TableNumberOld = "";
+            string StatusOld = "";
             string DateOfOrder = "";
             string PaymentType = "";
             string jsonString = jsonElement.GetRawText();
@@ -430,6 +431,7 @@ namespace backend.Controllers
             TotalOldPrice = existingDocument.GetValue("TotalPrice").AsDouble;
             DateOfOrder = existingDocument.GetValue("DateOfOrder").AsString;
             PaymentType= existingDocument.GetValue("PaymentType").AsString;
+            StatusOld= existingDocument.GetValue("Status").AsString;
             // Prepare the updated order details from the new document
             var updatedOrder = new Order
             {
@@ -479,21 +481,37 @@ namespace backend.Controllers
 
             if (updatedOrder.Status == "Done")
             {
-
-            
-                if (PaymentType == "Cash")
+                if (StatusOld == "Done")
                 {
-                    grossNumber = await UpdateTheGrossNewTest(-TotalOldPrice, -TotalOldPrice);
-                    await UpdateTheGrossNewTest(TotalPrice.Last(),TotalPrice.Last());
+                    if (PaymentType == "Cash")
+                    {
+                        grossNumber = await UpdateTheGrossNewTest(-TotalOldPrice, -TotalOldPrice);
+                        await UpdateTheGrossNewTest(TotalPrice.Last(), TotalPrice.Last());
                         newDocument.Add("GrossNumber", grossNumber);
                     }
                     else
-                {
-                    grossNumber = await UpdateTheGrossNew(-TotalOldPrice);
-                    await UpdateTheGrossNew(TotalPrice.Last());
+                    {
+                        grossNumber = await UpdateTheGrossNew(-TotalOldPrice);
+                        await UpdateTheGrossNew(TotalPrice.Last());
                         newDocument.Add("GrossNumber", grossNumber);
-                 }
+                    }
+                }
+                else
+                {
+                    if (PaymentType == "Cash")
+                    {
+                        grossNumber=await UpdateTheGrossNewTest(TotalPrice.Last(), TotalPrice.Last());
+                        newDocument.Add("GrossNumber", grossNumber);
+                    }
+                    else
+                    {
+                        grossNumber=await UpdateTheGrossNew(TotalPrice.Last());
+                        newDocument.Add("GrossNumber", grossNumber);
+                    }
+                }
+                   
             }
+
 
 
             newDocument.Add("TotalPrice", TotalPrice.Last());
