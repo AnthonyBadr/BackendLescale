@@ -209,13 +209,18 @@ namespace backend.Controllers
                 TableNumber = document["TableNumber"].AsString,
                 Type = "Dine In",
                 DeleiveryCharge = document["DeliveryCharge"] != null ? Convert.ToDouble(document["DeliveryCharge"]) : 0.0, // Default to 0.0 if null
-                PaymentType = document["PaymentType"].AsString
+                PaymentType = document["PaymentType"].AsString,
+                Status = document["Status"].AsString
             };
 
 
             TotalPrice = CalculateTotalPrice(jsonElement);
             double test = TotalPrice[0];
             string name = _globalService.username;
+
+            if (newOrder.Status == "Done")
+            {
+
             if (newOrder.PaymentType == "Cash")
             {
                 GrossNumber = UpdateTheGrossNewTest(TotalPrice[TotalPrice.Count() - 1], TotalPrice[TotalPrice.Count() - 1]).Result;
@@ -225,6 +230,7 @@ namespace backend.Controllers
             {
                 GrossNumber = UpdateTheGrossNewTest(TotalPrice[TotalPrice.Count() - 1],0).Result;
 
+            }
             }
             int index = 0;
             foreach (var item in document["Items"].AsBsonArray)
@@ -471,20 +477,26 @@ namespace backend.Controllers
                 index++;
             }
 
-            if (PaymentType == "Cash")
+            if (updatedOrder.Status == "Done")
             {
-                grossNumber = await UpdateTheGrossNewTest(-TotalOldPrice, -TotalOldPrice);
-                await UpdateTheGrossNewTest(TotalPrice.Last(),TotalPrice.Last());
-            }else
-            {
-                grossNumber = await UpdateTheGrossNew(-TotalOldPrice);
-                await UpdateTheGrossNew(TotalPrice.Last());
-            }
 
             
+                if (PaymentType == "Cash")
+                {
+                    grossNumber = await UpdateTheGrossNewTest(-TotalOldPrice, -TotalOldPrice);
+                    await UpdateTheGrossNewTest(TotalPrice.Last(),TotalPrice.Last());
+                        newDocument.Add("GrossNumber", grossNumber);
+                    }
+                    else
+                {
+                    grossNumber = await UpdateTheGrossNew(-TotalOldPrice);
+                    await UpdateTheGrossNew(TotalPrice.Last());
+                        newDocument.Add("GrossNumber", grossNumber);
+                 }
+            }
+
 
             newDocument.Add("TotalPrice", TotalPrice.Last());
-            newDocument.Add("GrossNumber", grossNumber);
             newDocument.Add("OrderNumber", ordernumber);
             newDocument.Add("DateOfOrder", DateOfOrder);
 
