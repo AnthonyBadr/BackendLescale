@@ -13,7 +13,7 @@ namespace backend.Models
 
         public string DateOfOrder { get; set; }
 
-
+        public string Notes { get; set; }
         public int OrderNumber { get; set; }
         public string Status { get; set; }
 
