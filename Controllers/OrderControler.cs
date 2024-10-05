@@ -399,7 +399,9 @@ namespace backend.Controllers
             double TotalOldPrice = 0;
             string TableNumberOld = "";
             string DateOfOrder = "";
+            string PaymentType = "";
             string jsonString = jsonElement.GetRawText();
+            int grossNumber;
             BsonDocument newDocument = BsonDocument.Parse(jsonString);
 
             // Get the collection
@@ -421,7 +423,7 @@ namespace backend.Controllers
             TableNumberOld = existingDocument.GetValue("TableNumber").AsString;
             TotalOldPrice = existingDocument.GetValue("TotalPrice").AsDouble;
             DateOfOrder = existingDocument.GetValue("DateOfOrder").AsString;
-
+            PaymentType= existingDocument.GetValue("PaymentType").AsString;
             // Prepare the updated order details from the new document
             var updatedOrder = new Order
             {
@@ -469,8 +471,17 @@ namespace backend.Controllers
                 index++;
             }
 
-            int grossNumber=await UpdateTheGrossNew(-TotalOldPrice);
-            await UpdateTheGrossNew(TotalPrice.Last());
+            if (PaymentType == "Cash")
+            {
+                grossNumber = await UpdateTheGrossNewTest(-TotalOldPrice, -TotalOldPrice);
+                await UpdateTheGrossNewTest(TotalPrice.Last(),TotalPrice.Last());
+            }else
+            {
+                grossNumber = await UpdateTheGrossNew(-TotalOldPrice);
+                await UpdateTheGrossNew(TotalPrice.Last());
+            }
+
+            
 
             newDocument.Add("TotalPrice", TotalPrice.Last());
             newDocument.Add("GrossNumber", grossNumber);
@@ -497,10 +508,10 @@ namespace backend.Controllers
             {
 
                 var GrossCollection = _database.GetCollection<BsonDocument>("Orders");
-
+            string paymentType = "";
 
                 double orderAmount = 0;
-
+            double cashvalue = 0;
 
                 var collection = _database.GetCollection<BsonDocument>("Orders");
                 var filter = Builders<BsonDocument>.Filter.Eq("OrderNumber", orderNumber);
@@ -509,9 +520,20 @@ namespace backend.Controllers
                 if (payment != null)
                 {
                     orderAmount = payment["TotalPrice"].AsDouble;
+                paymentType= payment["PaymentType"].AsString;
+
+                if (paymentType == "Cash")
+                {
+                    UpdateTheGrossNewTest(-orderAmount, -orderAmount);
+
+                }
+                else
+                {
                     UpdateTheGrossNew(-orderAmount);
 
-                    Console.WriteLine($"Order amount: {orderAmount}");
+                }
+
+                Console.WriteLine($"Order amount: {orderAmount}");
                 }
                 else
                 {
