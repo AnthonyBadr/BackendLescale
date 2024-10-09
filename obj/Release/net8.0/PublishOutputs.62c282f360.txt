@@ -8,7 +8,14 @@ C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Rele
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\AWSSDK.Core.dll
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\AWSSDK.SecurityToken.dll
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\DnsClient.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\Microsoft.AspNetCore.Authentication.JwtBearer.dll
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\Microsoft.Extensions.Hosting.WindowsServices.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\Microsoft.IdentityModel.Abstractions.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\Microsoft.IdentityModel.JsonWebTokens.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\Microsoft.IdentityModel.Logging.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\Microsoft.IdentityModel.Protocols.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\Microsoft.IdentityModel.Tokens.dll
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\MongoDB.Bson.dll
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\MongoDB.Driver.dll
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\MongoDB.Driver.Core.dll
@@ -16,6 +23,7 @@ C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Rele
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\Newtonsoft.Json.dll
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\SharpCompress.dll
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\Snappier.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\System.IdentityModel.Tokens.Jwt.dll
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\System.ServiceProcess.ServiceController.dll
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\ZstdSharp.dll
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\PubTmp\Out\runtimes\linux\native\libmongocrypt.so

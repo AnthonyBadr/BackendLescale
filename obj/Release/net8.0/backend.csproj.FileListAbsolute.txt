@@ -48,3 +48,11 @@ C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Rele
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\backend.pdb
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\backend.genruntimeconfig.cache
 C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\obj\Release\net8.0\ref\backend.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\bin\Release\net8.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\bin\Release\net8.0\Microsoft.IdentityModel.Abstractions.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\bin\Release\net8.0\Microsoft.IdentityModel.JsonWebTokens.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\bin\Release\net8.0\Microsoft.IdentityModel.Logging.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\bin\Release\net8.0\Microsoft.IdentityModel.Protocols.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\bin\Release\net8.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\bin\Release\net8.0\Microsoft.IdentityModel.Tokens.dll
+C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\bin\Release\net8.0\System.IdentityModel.Tokens.Jwt.dll

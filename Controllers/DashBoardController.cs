@@ -27,7 +27,7 @@ namespace backend.Controllers
         [HttpPost("CreateTotalRevenue")]
         public async Task<IActionResult> CreateTotalRevenue()
         {
-            int x = 9;
+
             var grossCollection = _database.GetCollection<BsonDocument>("Gross");
 
             var result = await grossCollection.Aggregate()

@@ -1,13 +1,14 @@
-using backend;
 using backend.Services;
-using MongoDB.Driver;
-using Microsoft.AspNetCore.Hosting;
-using backend.Models;
+using backend;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using MongoDB.Driver;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Set the URL for the application to run on port 7092
+builder.WebHost.UseUrls("https://localhost:7092"); // Use this to specify the port before building
 
 // Add services to the container.
 builder.Services.AddControllers()
@@ -80,8 +81,9 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseCors("AllowSpecificOrigin");
 app.UseRouting();
-app.UseAuthentication(); // Add this line
+app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
