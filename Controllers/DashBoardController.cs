@@ -48,19 +48,22 @@ namespace backend.Controllers
         {
             var grossCollection = _database.GetCollection<BsonDocument>("Gross");
 
+            // Aggregate pipeline
             var result = await grossCollection.Aggregate()
-      .Sort(new BsonDocument("DateOfCreation", 1)) // Sort by DateOfCreation in ascending order
-      .Group(new BsonDocument
-      {
-        { "_id", "$DateOfCreation" }, // Group by DateOfCreation
-        { "TotalGross", new BsonDocument("$sum", "$TotalGross") }
-      })
-      .ToListAsync(); // Use ToListAsync to get all grouped results
+                .Group(new BsonDocument
+                {
+            { "_id", "$DateOfCreation" }, // Group by DateOfCreation
+            { "TotalGross", new BsonDocument("$sum", "$TotalGross") }
+                })
+                .Sort(new BsonDocument("_id", 1)) // Sort by _id (which is DateOfCreation) in ascending order
+                .ToListAsync(); // Use ToListAsync to get all grouped results
 
+            // Convert the BSON documents to .NET values
             var totalGross = result.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
             return Ok(totalGross);
         }
+
 
 
 

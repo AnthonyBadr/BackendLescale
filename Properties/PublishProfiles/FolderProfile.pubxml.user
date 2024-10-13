@@ -4,8 +4,8 @@ https://go.microsoft.com/fwlink/?LinkID=208121.
 -->
 <Project>
   <PropertyGroup>
-    <_PublishTargetUrl>C:\Users\antho\Desktop\dotdevfolder\pos\L-Escale-Royale-Backend\backend\bin\Release\net8.0\publish\</_PublishTargetUrl>
-    <History>True|2024-10-07T17:49:30.9859067Z;False|2024-10-07T20:49:14.0665583+03:00;False|2024-10-07T20:47:22.1808223+03:00;True|2024-10-07T20:37:25.9120182+03:00;True|2024-10-07T16:50:06.0764824+03:00;True|2024-09-30T23:30:56.8212883+03:00;</History>
+    <_PublishTargetUrl>C:\SoftwareProjects\POS_System_Backend\Publish</_PublishTargetUrl>
+    <History>True|2024-10-12T14:17:40.1067678Z||;True|2024-10-12T17:14:47.4566871+03:00||;True|2024-10-12T16:32:49.2862711+03:00||;</History>
     <LastFailureDetails />
   </PropertyGroup>
 </Project>

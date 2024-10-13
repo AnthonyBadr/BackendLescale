@@ -38,6 +38,7 @@ namespace backend.Models
 
         public double TotalOldPrice {  get; set; }
 
+        public CustomerNumber CustomerNumber { get; set; }
 
     }
 }

@@ -94,7 +94,7 @@ namespace backend.Controllers
                 document.Add("DateOfPayment", DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"));
                 document.Add("GrossNumber", GrossNumber);
                 await GrossCollection.InsertOneAsync(document);
-                return Ok(new { message = "Order created successfully", PaymentNumber = newSequenceValue.ToString(), document["Amount"].AsDouble });
+                return Ok(new { message = "Payment created successfully", PaymentNumber = newSequenceValue.ToString(), document["Amount"].AsDouble });
 
                 // Find the first 'Gross' document with a status of 'Pending'
 
@@ -237,6 +237,51 @@ public IActionResult Delete(int paymentNumber)
             return grossNumber;
         }
 
+
+        public async Task<int> UpdateTheGrossNewTest(double amount, double cashAmount)
+        {
+            var grossCollection = _database.GetCollection<BsonDocument>("Gross");
+
+            var filterGross = Builders<BsonDocument>.Filter.Eq("Status", "Open");
+            var theGross = await grossCollection.Find(filterGross).FirstOrDefaultAsync();
+
+            if (theGross == null)
+            {
+                throw new Exception("Start your day please.");
+            }
+
+            if (!theGross.Contains("GrossNumber"))
+            {
+                throw new Exception("GrossNumber field is missing in the document.");
+            }
+
+            int grossNumber = theGross["GrossNumber"].BsonType == BsonType.Int32 ? theGross["GrossNumber"].AsInt32 : throw new Exception("GrossNumber is not a valid integer.");
+
+            // Debug statement to log the document found by the filter
+            Console.WriteLine(theGross.ToJson());
+
+
+            // Log the values before updating
+            Console.WriteLine($"Amount: {amount}, Cash Amount: {cashAmount}");
+
+            var update = Builders<BsonDocument>.Update
+                .Combine(
+                    Builders<BsonDocument>.Update.Inc("TotalGross", amount),
+                    Builders<BsonDocument>.Update.Inc("CashGross", cashAmount)
+                );
+
+            var updateResult = await grossCollection.UpdateOneAsync(filterGross, update);
+
+            // Debug statement to log the update result
+            Console.WriteLine($"Matched Count: {updateResult.MatchedCount}, Modified Count: {updateResult.ModifiedCount}");
+
+            if (updateResult.ModifiedCount == 0)
+            {
+                throw new Exception("No updates were made to the gross document.");
+            }
+
+            return grossNumber;
+        }
 
 
 

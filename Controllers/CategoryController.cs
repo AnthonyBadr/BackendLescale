@@ -51,7 +51,7 @@ namespace backend.Controllers
 
             if (existingCategory != null)
             {
-                return Conflict(new { message = $"Category '{categoryName}' already exists." });
+                return Conflict(new { message = $"Category '{categoryName}' already exists. Bro shu bek man              fdfdfdf" });
             }
 
             collection.InsertOne(document);
