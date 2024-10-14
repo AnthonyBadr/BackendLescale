@@ -5,7 +5,7 @@ https://go.microsoft.com/fwlink/?LinkID=208121.
 <Project>
   <PropertyGroup>
     <_PublishTargetUrl>C:\SoftwareProjects\POS_System_Backend\Publish</_PublishTargetUrl>
-    <History>True|2024-10-12T14:17:40.1067678Z||;True|2024-10-12T17:14:47.4566871+03:00||;True|2024-10-12T16:32:49.2862711+03:00||;</History>
+    <History>True|2024-10-14T06:02:40.1142987Z||;True|2024-10-14T08:22:25.4962574+03:00||;True|2024-10-12T17:17:40.1067678+03:00||;True|2024-10-12T17:14:47.4566871+03:00||;True|2024-10-12T16:32:49.2862711+03:00||;</History>
     <LastFailureDetails />
   </PropertyGroup>
 </Project>

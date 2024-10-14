@@ -70,7 +70,7 @@ namespace backend.Controllers
             var category = collection.Find(filter).FirstOrDefault();
             if (category == null)
             {
-                return NotFound(new { message = $"Phone Number '{PhoneNumber}' not found." });
+                return NotFound(new { message = $"Phone Number '{PhoneNumber}' not found. and ready bro" });
             }
             return Ok(BsonTypeMapper.MapToDotNetValue(category));
         }
