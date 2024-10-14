@@ -63,7 +63,7 @@ namespace backend.Controllers
         {
             if (string.IsNullOrEmpty(PhoneNumber))
             {
-                return BadRequest(new { message = "PhoneNumber  is required.ddsdssdsdsd" });
+                return BadRequest(new { message = "PhoneNumber  is required." });
             }
             var collection = _database.GetCollection<BsonDocument>("PhoneNumber");
             var filter = Builders<BsonDocument>.Filter.Eq("PhoneNumber", PhoneNumber);        
