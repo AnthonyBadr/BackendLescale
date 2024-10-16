@@ -36,12 +36,12 @@ namespace backend.Controllers
                 // Parse the JSON element manually to avoid issues
                 string json = jsonElement.GetRawText();
                 var document = BsonDocument.Parse(json);
-                string Username = document["Username"].AsString;
+                int Id = document["Id"].AsInt32;
                 string Pin = document["Pin"].AsString;
 
                 // Retrieve the stored hashed password from the database
                 var collection = _database.GetCollection<BsonDocument>("User");
-                var filter = Builders<BsonDocument>.Filter.Eq("Username", Username);
+                var filter = Builders<BsonDocument>.Filter.Eq("Id", Id);
                 var userDocument = await collection.Find(filter).FirstOrDefaultAsync();
                 int x=5;
                 if (userDocument == null)
@@ -65,7 +65,7 @@ namespace backend.Controllers
                     // Compare the hashed passwords
                     if (hashedPassword == storedHashedPassword)
                     {
-                        _globalService.username = Username;
+                        _globalService.username = Id.ToString();
                         // Return the user document without any deserialization into booleans
                         return Ok(userDocument.ToJson());
                     }
