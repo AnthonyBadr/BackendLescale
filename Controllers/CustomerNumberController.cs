@@ -43,7 +43,7 @@ namespace backend.Controllers
             BsonDocument document = BsonDocument.Parse(jsonString);
             string PhoneNumber = document["PhoneNumber"].AsString;
 
-            var collection = _database.GetCollection<BsonDocument>("PhoneNumber");
+            var collection = _database.GetCollection<BsonDocument>("CustomerNumber");
             var existingCategory = collection.Find(Builders<BsonDocument>.Filter.Eq("PhoneNumber", PhoneNumber)).FirstOrDefault();
 
             if (existingCategory != null)
@@ -65,7 +65,7 @@ namespace backend.Controllers
             {
                 return BadRequest(new { message = "PhoneNumber  is required." });
             }
-            var collection = _database.GetCollection<BsonDocument>("PhoneNumber");
+            var collection = _database.GetCollection<BsonDocument>("CustomerNumber");
             var filter = Builders<BsonDocument>.Filter.Eq("PhoneNumber", PhoneNumber);        
             var category = collection.Find(filter).FirstOrDefault();
             if (category == null)
@@ -79,7 +79,7 @@ namespace backend.Controllers
         [HttpDelete("DeleteCustomerNumberByPhoneNumber/{PhoneNumber}")]
         public IActionResult DeleteCategoryByName(string PhoneNumber)
         {
-            var categoryCollection = _database.GetCollection<BsonDocument>("PhoneNumber");
+            var categoryCollection = _database.GetCollection<BsonDocument>("CustomerNumber");
 
             var filter = Builders<BsonDocument>.Filter.Eq("PhoneNumber", PhoneNumber); // Filter by name
             var deleteResult = categoryCollection.DeleteOne(filter);
@@ -98,10 +98,12 @@ namespace backend.Controllers
 
 
 
-        [HttpPut("UpdateCustomerNumberByName/{PhoneNumber}")]
-        public IActionResult UpdateItem(string PhoneNumber, [FromBody] JsonElement jsonElement)
+        [HttpPut("UpdateCustomerNumberByPhoneNumber/{phoneNumber}")]
+        public IActionResult UpdateCategoryByName(string phoneNumber, [FromBody] JsonElement jsonElement)
         {
+
             string jsonString = jsonElement.GetRawText();
+
 
             BsonDocument document;
             try
@@ -113,43 +115,44 @@ namespace backend.Controllers
                 return BadRequest($"Invalid JSON format: {ex.Message}");
             }
 
-            if (string.IsNullOrEmpty(PhoneNumber))
+
+            if (string.IsNullOrEmpty(phoneNumber))
             {
-                return BadRequest("Invalid name.");
+                return BadRequest("phoneNumber is required.");
             }
+
 
             if (!document.Contains("PhoneNumber"))
             {
-                return BadRequest("The 'PhoneNumber' field is required.");
+                return BadRequest("The 'phoneNumber' field is required in the document.");
             }
 
-            string newCustomerItemName = document["PhoneNumber"].AsString;
+
+            string newPhoneNumber = document["PhoneNumber"].AsString;
 
 
             var collection = _database.GetCollection<BsonDocument>("CustomerNumber");
 
-            var existingItem = collection.Find(Builders<BsonDocument>.Filter.And(
-                Builders<BsonDocument>.Filter.Eq("PhoneNumber", PhoneNumber)
-            )).FirstOrDefault();
 
-            if (existingItem != null && newCustomerItemName != PhoneNumber)
+            var existingCategory = collection.Find(Builders<BsonDocument>.Filter.Eq("PhoneNumber", newPhoneNumber)).FirstOrDefault();
+            if (existingCategory != null && newPhoneNumber != phoneNumber)
             {
-                return Conflict(new { message = "Customer  with the same phonenumber already exists." });
+                return Conflict(new { message = $"Category '{newPhoneNumber}' already exists." });
             }
 
-            var filter = Builders<BsonDocument>.Filter.Eq("PhoneNumber", PhoneNumber);
+
+            var filter = Builders<BsonDocument>.Filter.Eq("PhoneNumber", newPhoneNumber);
+
 
             var updateResult = collection.ReplaceOne(filter, document);
 
             if (updateResult.MatchedCount == 0)
             {
-                return NotFound("Item not found.");
+                return NotFound($"newPhoneNumber '{newPhoneNumber}' not found.");
             }
+            _globalService.LogAction($"newPhoneNumber '{newPhoneNumber}' updated.", "Update");
 
-            _globalService.LogAction(PhoneNumber, "Update");
-
-            return Ok("CustomerPhoneNumber updated successfully.");
+            return Ok("newPhoneNumber updated successfully.");
         }
-
     }
 }
