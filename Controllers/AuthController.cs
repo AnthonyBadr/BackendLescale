@@ -43,7 +43,7 @@ namespace backend.Controllers
                 var collection = _database.GetCollection<BsonDocument>("User");
                 var filter = Builders<BsonDocument>.Filter.Eq("Id", Id);
                 var userDocument = await collection.Find(filter).FirstOrDefaultAsync();
-                int x=5;
+
                 if (userDocument == null)
                 {
                     return Unauthorized(new { Message = "Invalid username or password." });
@@ -84,7 +84,7 @@ namespace backend.Controllers
 
 
         [HttpPost("LogOut")]
-        public async Task<IActionResult> LogOut([FromBody] JsonElement jsonElement)
+        public  IActionResult LogOut([FromBody] JsonElement jsonElement)
         {
             _globalService.username = "N/A";
 

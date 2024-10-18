@@ -257,11 +257,10 @@ public IActionResult Delete(int paymentNumber)
 
             int grossNumber = theGross["GrossNumber"].BsonType == BsonType.Int32 ? theGross["GrossNumber"].AsInt32 : throw new Exception("GrossNumber is not a valid integer.");
 
-            // Debug statement to log the document found by the filter
             Console.WriteLine(theGross.ToJson());
 
 
-            // Log the values before updating
+          
             Console.WriteLine($"Amount: {amount}, Cash Amount: {cashAmount}");
 
             var update = Builders<BsonDocument>.Update
@@ -272,7 +271,6 @@ public IActionResult Delete(int paymentNumber)
 
             var updateResult = await grossCollection.UpdateOneAsync(filterGross, update);
 
-            // Debug statement to log the update result
             Console.WriteLine($"Matched Count: {updateResult.MatchedCount}, Modified Count: {updateResult.ModifiedCount}");
 
             if (updateResult.ModifiedCount == 0)

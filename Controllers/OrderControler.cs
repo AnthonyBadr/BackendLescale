@@ -223,14 +223,14 @@ namespace backend.Controllers
 
             if (newOrder.PaymentType == "Cash")
             {
-                GrossNumber = UpdateTheGrossNewTest(TotalPrice[TotalPrice.Count() - 1], TotalPrice[TotalPrice.Count() - 1]).Result;
+                GrossNumber = UpdateTheGrossNewTest(TotalPrice.Last(), TotalPrice.Last()).Result;
 
             }
             else
             {
-                GrossNumber = UpdateTheGrossNewTest(TotalPrice[TotalPrice.Count() - 1],0).Result;
+                    GrossNumber = UpdateTheGrossNewTest(TotalPrice.Last(),0).Result;
 
-            }
+                }
             }
             int index = 0;
             foreach (var item in document["Items"].AsBsonArray)
@@ -272,7 +272,7 @@ namespace backend.Controllers
                 document.Add("OrderNumber", newSequenceValue);
                 document.Add("DateOfOrder", DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"));
                 document.Add("GrossNumber", GrossNumber);
-            document.Add("TotalPrice", TotalPrice[TotalPrice.Count() - 1]);
+            document.Add("TotalPrice", TotalPrice.Last());
                 document.Add("Created_by", _globalService.username);
                 await collection.InsertOneAsync(document);
                 return Ok(new { message = "Order created successfully", OrderNumber = newSequenceValue.ToString(), TotalPrice });
@@ -541,7 +541,6 @@ namespace backend.Controllers
             string paymentType = "";
 
                 double orderAmount = 0;
-            double cashvalue = 0;
 
                 var collection = _database.GetCollection<BsonDocument>("Orders");
                 var filter = Builders<BsonDocument>.Filter.Eq("OrderNumber", orderNumber);

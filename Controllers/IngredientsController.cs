@@ -275,11 +275,7 @@ namespace backend.Controllers
 
 
 
-        //    {
-        //    type_of_Ingredient:
-        //        name:
-        //        price
-        //}
+     
         [HttpPost("AddanIngredientToALiSt")]
         public async Task<IActionResult> AddanIngredientToALiSt([FromBody] JsonElement jsonElement)
         {
