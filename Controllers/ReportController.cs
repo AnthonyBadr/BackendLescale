@@ -12,13 +12,11 @@ namespace backend.Controllers
     [Route("api/[controller]")]
     public class ReportController : Controller
     {
-        private readonly ILogger<ReportController> _logger;
         private readonly IMongoDatabase _database;
         private readonly GlobalService _globalService;
 
-        public ReportController(ILogger<ReportController> logger, IMongoDatabase database, GlobalService globalService)
+        public ReportController(IMongoDatabase database, GlobalService globalService)
         {
-            _logger = logger;
             _database = database;
             _globalService = globalService;
         }

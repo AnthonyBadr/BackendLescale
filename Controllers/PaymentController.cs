@@ -238,7 +238,7 @@ public IActionResult Delete(int paymentNumber)
         }
 
 
-        public async Task<int> UpdateTheGrossNewTest(double amount, double cashAmount)
+        public async Task<int?> UpdateTheGrossNewTest(double amount, double cashAmount)
         {
             var grossCollection = _database.GetCollection<BsonDocument>("Gross");
 
@@ -247,20 +247,27 @@ public IActionResult Delete(int paymentNumber)
 
             if (theGross == null)
             {
-                throw new Exception("Start your day please.");
+                Console.WriteLine("Start your day please.");
+                return null; // Indicate failure
             }
 
             if (!theGross.Contains("GrossNumber"))
             {
-                throw new Exception("GrossNumber field is missing in the document.");
+                Console.WriteLine("GrossNumber field is missing in the document.");
+                return null; // Indicate failure
             }
 
-            int grossNumber = theGross["GrossNumber"].BsonType == BsonType.Int32 ? theGross["GrossNumber"].AsInt32 : throw new Exception("GrossNumber is not a valid integer.");
+            // Use a conditional operator to safely get the gross number or return null if it's not valid
+            int? grossNumber = theGross["GrossNumber"].BsonType == BsonType.Int32 ? theGross["GrossNumber"].AsInt32 : (int?)null;
+
+            // If grossNumber is null, log and return
+            if (grossNumber == null)
+            {
+                Console.WriteLine("GrossNumber is not a valid integer.");
+                return null; // Indicate failure
+            }
 
             Console.WriteLine(theGross.ToJson());
-
-
-          
             Console.WriteLine($"Amount: {amount}, Cash Amount: {cashAmount}");
 
             var update = Builders<BsonDocument>.Update
@@ -275,11 +282,13 @@ public IActionResult Delete(int paymentNumber)
 
             if (updateResult.ModifiedCount == 0)
             {
-                throw new Exception("No updates were made to the gross document.");
+                Console.WriteLine("No updates were made to the gross document.");
+                return null; // Indicate failure
             }
 
-            return grossNumber;
+            return grossNumber; // Return the gross number if successful
         }
+
 
 
 

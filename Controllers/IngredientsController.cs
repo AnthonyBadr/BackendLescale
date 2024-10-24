@@ -16,13 +16,13 @@ namespace backend.Controllers
     public class IngredientsController : Controller
     {
 
-        private readonly ILogger<IngredientsController> _logger;
+
         private readonly IMongoDatabase _database;
         private readonly GlobalService _globalService;
 
-        public IngredientsController(ILogger<IngredientsController> logger, IMongoDatabase database, GlobalService globalService)
+        public IngredientsController( IMongoDatabase database, GlobalService globalService)
         {
-            _logger = logger;
+            
             _database = database;
             _globalService = globalService;
 
@@ -103,7 +103,8 @@ namespace backend.Controllers
         public async Task<IActionResult> GetAllOrders()
         {
             var collection = _database.GetCollection<BsonDocument>("Ingredients");
-            var documents = collection.Find(new BsonDocument()).ToList();
+            var documentsCursor = await collection.FindAsync(new BsonDocument());
+            var documents = await documentsCursor.ToListAsync();
 
             // Convert documents to a list of JSON objects
             var jsonResult = documents.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
@@ -158,11 +159,6 @@ namespace backend.Controllers
             }
         }
 
-
-        //    {
-        //    oldkey:
-        //        newkey:
-        //}
 
         [HttpPut("UpdateKeyName")]
         public async Task<IActionResult> UpdateKeyName([FromBody] JsonElement jsonElement)

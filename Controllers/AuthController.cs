@@ -14,12 +14,11 @@ namespace backend.Controllers
     [Route("api/[controller]")]
     public class AuthController : Controller
     {
-        private readonly ILogger<AuthController> _logger;
         private readonly IMongoDatabase _database;
         private readonly GlobalService _globalService;
-        public AuthController(ILogger<AuthController> logger, IMongoDatabase database, GlobalService globalService)
+        public AuthController(IMongoDatabase database, GlobalService globalService)
         {
-            _logger = logger;
+          
             _database = database;
             _globalService = globalService;
         }

@@ -13,13 +13,12 @@ namespace backend.Controllers
     [Route("api/[controller]")]
     public class TableController : Controller
     {
-        private readonly ILogger<TableController> _logger;
         private readonly IMongoDatabase _database;
         private readonly GlobalService _globalService;
 
-        public TableController(ILogger<TableController> logger, IMongoDatabase database, GlobalService globalService)
+        public TableController(IMongoDatabase database, GlobalService globalService)
         {
-            _logger = logger;
+         
             _database = database;
             _globalService = globalService;
         }
@@ -61,18 +60,23 @@ namespace backend.Controllers
         {
             var collection = _database.GetCollection<BsonDocument>("Tables");
 
-            // Create a filter to find the order with the specified OrderNumber
             var filter = Builders<BsonDocument>.Filter.Eq("Status", Status);
 
-            var tableDocuments = collection.Find(filter).ToList();
+   
+            var tableDocumentsCursor = await collection.FindAsync(filter);
+            var tableDocuments = await tableDocumentsCursor.ToListAsync();
+
+
             var document = tableDocuments.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
-            if (tableDocuments == null)
+
+            if (tableDocuments == null || tableDocuments.Count == 0)
             {
                 return NotFound($"Table with Status {Status} not found.");
             }
 
             return Json(document);
         }
+
 
 
         [HttpPost("CreateTable")]

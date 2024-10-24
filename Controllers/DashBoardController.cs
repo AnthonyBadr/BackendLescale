@@ -11,13 +11,11 @@ namespace backend.Controllers
     public class DashBoardController : Controller
     {
 
-        private readonly ILogger<DashBoardController> _logger;
         private readonly IMongoDatabase _database;
         private readonly GlobalService _globalService;
 
-        public DashBoardController(ILogger<DashBoardController> logger, IMongoDatabase database, GlobalService globalService)
+        public DashBoardController( IMongoDatabase database, GlobalService globalService)
         {
-            _logger = logger;
             _database = database;
             _globalService = globalService;
         }

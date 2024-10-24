@@ -24,12 +24,11 @@ namespace backend.Controllers
 
 
 
-        private readonly ILogger<OrderController> _logger;
         private readonly IMongoDatabase _database;
         private readonly GlobalService _globalService;
-        public OrderController(ILogger<OrderController> logger, IMongoDatabase database, GlobalService globalService)
+        public OrderController(IMongoDatabase database, GlobalService globalService)
         {
-            _logger = logger;
+           
             _database = database;
             _globalService = globalService;
         }
@@ -64,27 +63,25 @@ namespace backend.Controllers
         {
             var collection = _database.GetCollection<BsonDocument>("Orders");
 
-            // Create a filter to find the order with the specified date (first 10 characters)
             var filter = Builders<BsonDocument>.Filter.Regex("DateOfOrder", new BsonRegularExpression($"^{date}"));
 
-            // Apply pagination with Skip and Limit
-            var orderDocuments = collection.Find(filter)
-                                           .Skip((pageNumber - 1) * pageSize)
-                                           .Limit(pageSize)
-                                           .ToList();
+            var orderDocumentsCursor = await collection.Find(filter)
+                                                       .Skip((pageNumber - 1) * pageSize)
+                                                       .Limit(pageSize)
+                                                       .ToCursorAsync();
+
+            var orderDocuments = await orderDocumentsCursor.ToListAsync();
 
             if (orderDocuments == null || orderDocuments.Count == 0)
             {
-                // Return a 404 if no orders are found for the specified date
                 return NotFound($"No orders found with date {date}.");
             }
 
-            // Map the BSON documents to .NET objects
             var document = orderDocuments.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
-            // Return the paginated result
             return Json(document);
         }
+
 
 
 
@@ -94,21 +91,22 @@ namespace backend.Controllers
         {
             var collection = _database.GetCollection<BsonDocument>("Orders");
 
-            // Create a filter to find the order with the specified OrderNumber
             var filter = Builders<BsonDocument>.Filter.Eq("Status", Status);
 
-            // Find the order in the collection
-            var orderDocuments =  collection.Find(filter).ToList();
+            var orderDocumentsCursor = await collection.FindAsync(filter);
+            var orderDocuments = await orderDocumentsCursor.ToListAsync();
+
             var document = orderDocuments.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
-            if (orderDocuments == null)
+
+            if (orderDocuments == null || orderDocuments.Count == 0)
             {
-                // Return a 404 if the order is not found
                 return NotFound($"Order with Status {Status} not found.");
             }
 
-            // Return the found order
+            // Return the result
             return Json(document);
         }
+
 
 
 
@@ -175,19 +173,17 @@ namespace backend.Controllers
         {
             var collection = _database.GetCollection<BsonDocument>("Orders");
 
-            // Calculate the number of documents to skip
             int skip = (pageNumber - 1) * pageSize;
 
-            // Retrieve the documents with pagination
-            var documents = collection.Find(new BsonDocument())
-                                      .Skip(skip)
-                                      .Limit(pageSize)
-                                      .ToList();
+            var documentsCursor = await collection.Find(new BsonDocument())
+                                                  .Skip(skip)
+                                                  .Limit(pageSize)
+                                                  .ToCursorAsync();
 
-            // Convert documents to a list of JSON objects
+            var documents = await documentsCursor.ToListAsync();
+
             var jsonResult = documents.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
-            // Return the data as JSON
             return Json(jsonResult);
         }
 
@@ -675,19 +671,22 @@ namespace backend.Controllers
 
 
 
-        private async void UpdateTableStatus(string TableNumber, string Status)
-            {
-                var tableCollection = _database.GetCollection<BsonDocument>("Table");
-                var update = Builders<BsonDocument>.Update.Set("Status", Status);
-                var filter = Builders<BsonDocument>.Filter.Eq("TableNumber", TableNumber);
-                var result = await tableCollection.UpdateOneAsync(filter, update);
+        private async Task UpdateTableStatus(string TableNumber, string Status)
+        {
+            var tableCollection = _database.GetCollection<BsonDocument>("Table");
 
-            }
+            var update = Builders<BsonDocument>.Update.Set("Status", Status);
+
+            var filter = Builders<BsonDocument>.Filter.Eq("TableNumber", TableNumber);
+
+            await tableCollection.UpdateOneAsync(filter, update);
+        }
 
 
 
 
-      
+
+
 
 
 

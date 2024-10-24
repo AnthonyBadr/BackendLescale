@@ -14,13 +14,11 @@ namespace backend.Controllers
     public class GrossController : Controller
     {
 
-        private readonly ILogger<GrossController> _logger;
         private readonly IMongoDatabase _database;
         private readonly GlobalService _globalService;
 
-        public GrossController(ILogger<GrossController> logger, IMongoDatabase database, GlobalService globalService)
+        public GrossController( IMongoDatabase database, GlobalService globalService)
         {
-            _logger = logger;
             _database = database;
             _globalService = globalService;
         }

@@ -14,13 +14,12 @@ namespace backend.Controllers
     public class ItemController : Controller
     {
 
-        private readonly ILogger<ItemController> _logger;
         private readonly IMongoDatabase _database;
         private readonly GlobalService _globalService;
 
-        public ItemController(ILogger<ItemController> logger, IMongoDatabase database, GlobalService globalService)
+        public ItemController( IMongoDatabase database, GlobalService globalService)
         {
-            _logger = logger;
+         
             _database = database;
             _globalService = globalService;
         }

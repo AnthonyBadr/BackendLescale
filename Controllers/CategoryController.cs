@@ -13,13 +13,12 @@ namespace backend.Controllers
     [Route("api/[controller]")]
     public class CategoryController : Controller
     {
-        private readonly ILogger<CategoryController> _logger;
         private readonly IMongoDatabase _database;
         private readonly GlobalService _globalService;
 
-        public CategoryController(ILogger<CategoryController> logger, IMongoDatabase database, GlobalService globalService)
+        public CategoryController(IMongoDatabase database, GlobalService globalService)
         {
-            _logger = logger;
+          
             _database = database;
             _globalService = globalService;
         }
@@ -31,12 +30,30 @@ namespace backend.Controllers
             var collection = _database.GetCollection<BsonDocument>("Category");
             var documents = collection.Find(new BsonDocument()).ToList();
 
-            // Convert documents to .NET objects for proper serialization
             var jsonResult = documents.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
             // Return the data as JSON
             return Json(jsonResult);
         }
+
+
+        [HttpPost("OrderCategories")]
+        public async Task<IActionResult> ReceiveJsonList([FromBody] List<BsonDocument> jsonList)
+        {
+            var categoryCollection = _database.GetCollection<BsonDocument>("Category");
+
+            await categoryCollection.DeleteManyAsync(Builders<BsonDocument>.Filter.Empty);
+
+            if (jsonList != null && jsonList.Count > 0)
+            {
+                var bsonDocuments = jsonList.Select(item => BsonDocument.Parse(item.ToString())).ToList();
+                await categoryCollection.InsertManyAsync(bsonDocuments);
+            }
+
+            return Ok("Collection updated successfully.");
+        }
+
+
 
         // Create a new category
         [HttpPost("CreateCategory")]
@@ -90,31 +107,34 @@ namespace backend.Controllers
         [HttpDelete("DeleteCategoryByName/{name}")]
         public IActionResult DeleteCategoryByName(string name)
         {
+            // Validate the name parameter
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return BadRequest("Category name cannot be null or empty.");
+            }
+
             var categoryCollection = _database.GetCollection<BsonDocument>("Category");
             var itemCollection = _database.GetCollection<BsonDocument>("Item");
 
-            // Filter to check if items exist with the given category name
             var filter2 = Builders<BsonDocument>.Filter.Eq("CategoryName", name);
-            var itemExists = itemCollection.Find(filter2).Any(); // Check if any items are associated with this category
+            var itemExists = itemCollection.Find(filter2).Any(); 
 
             if (itemExists)
             {
                 return BadRequest($"Cannot delete category '{name}' because items are associated with it.");
             }
 
-            // Proceed with deleting the category
-            var filter = Builders<BsonDocument>.Filter.Eq("Name", name); // Filter by name
+            var filter = Builders<BsonDocument>.Filter.Eq("Name", name);
             var deleteResult = categoryCollection.DeleteOne(filter);
-
             if (deleteResult.DeletedCount == 0)
             {
                 return NotFound($"Category '{name}' not found.");
             }
-
             _globalService.LogAction($"Category '{name}' deleted.", "Delete");
 
             return Ok($"Category '{name}' successfully deleted.");
         }
+
 
 
 

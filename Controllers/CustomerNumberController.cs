@@ -10,13 +10,12 @@ namespace backend.Controllers
 
     public class CustomerNumberController : Controller
     {
-        private readonly ILogger<CustomerNumberController> _logger;
         private readonly IMongoDatabase _database;
         private readonly GlobalService _globalService;
 
-        public CustomerNumberController(ILogger<CustomerNumberController> logger, IMongoDatabase database, GlobalService globalService)
+        public CustomerNumberController(IMongoDatabase database, GlobalService globalService)
         {
-            _logger = logger;
+           
             _database = database;
             _globalService = globalService;
         }

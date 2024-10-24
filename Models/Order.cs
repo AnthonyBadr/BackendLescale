@@ -8,37 +8,38 @@ namespace backend.Models
     {
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
-     public  string Id { get; set; }
-        public string Type { get; set; }
+        public string? Id { get; set; } // Nullable string
 
-        public string DateOfOrder { get; set; }
+        public string? Type { get; set; } // Nullable string
 
-        public string Notes { get; set; }
-        public int OrderNumber { get; set; }
-        public string Status { get; set; }
+        public string? DateOfOrder { get; set; } // Nullable string
 
-        public List<Item> Items { get; set; }   
+        public string? Notes { get; set; } // Nullable string
 
-        public string TableNumber {  get; set; }
+        public int? OrderNumber { get; set; } // Nullable int
 
-        public double TotoalPrice { get; set; }
+        public string? Status { get; set; } // Nullable string
 
-        public int GrossNumber { get; set; }
+        public List<Item>? Items { get; set; } // Nullable List<Item>
 
-        public string PaymentType { get; set; }
+        public string? TableNumber { get; set; } // Nullable string
 
-        public double DeleiveryCharge { get; set; }
+        public double? TotoalPrice { get; set; } // Nullable double
 
-        public string Location { get; set; }
+        public int? GrossNumber { get; set; } // Nullable int
 
+        public string? PaymentType { get; set; } // Nullable string
 
-        public string Created_by {  get; set; }
+        public double? DeleiveryCharge { get; set; } // Nullable double
 
-        public int Quantity { get; set; }   
+        public string? Location { get; set; } // Nullable string
 
-        public double TotalOldPrice {  get; set; }
+        public string? Created_by { get; set; } // Nullable string
 
-        public CustomerNumber CustomerNumber { get; set; }
+        public int? Quantity { get; set; } // Nullable int
 
+        public double? TotalOldPrice { get; set; } // Nullable double
+
+        public CustomerNumber? CustomerNumber { get; set; } // Nullable CustomerNumber
     }
 }
