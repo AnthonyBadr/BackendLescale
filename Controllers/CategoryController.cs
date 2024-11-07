@@ -18,7 +18,7 @@ namespace backend.Controllers
 
         public CategoryController(IMongoDatabase database, GlobalService globalService)
         {
-          
+
             _database = database;
             _globalService = globalService;
         }
@@ -28,7 +28,10 @@ namespace backend.Controllers
         public IActionResult GetAllCategories()
         {
             var collection = _database.GetCollection<BsonDocument>("Category");
-            var documents = collection.Find(new BsonDocument()).ToList();
+            var documents = collection.Find(new BsonDocument())
+                .Sort(Builders<BsonDocument>.Sort.Ascending("Order"))
+                .ToList();
+
 
             var jsonResult = documents.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList();
 
@@ -36,22 +39,65 @@ namespace backend.Controllers
             return Json(jsonResult);
         }
 
+        public class CategoryOrderRequest
+        {
+            public List<CategoryOrderUpdate> Categories { get; set; }
+        }
+        public class CategoryOrderUpdate
+        {
+            public string Name { get; set; }
+            public int Order { get; set; }
+        }
 
         [HttpPost("OrderCategories")]
-        public async Task<IActionResult> ReceiveJsonList([FromBody] List<BsonDocument> jsonList)
+        public async Task<IActionResult> UpdateCategoryOrder([FromBody] CategoryOrderRequest request)
         {
-            var categoryCollection = _database.GetCollection<BsonDocument>("Category");
+            // Log the incoming request
+            Console.WriteLine("Received UpdateCategoryOrder request");
+            Console.WriteLine($"Request Body: {JsonSerializer.Serialize(request)}");
 
-            await categoryCollection.DeleteManyAsync(Builders<BsonDocument>.Filter.Empty);
-
-            if (jsonList != null && jsonList.Count > 0)
+            if (request == null || request.Categories == null || request.Categories.Count == 0)
             {
-                var bsonDocuments = jsonList.Select(item => BsonDocument.Parse(item.ToString())).ToList();
-                await categoryCollection.InsertManyAsync(bsonDocuments);
+                Console.WriteLine("Error: No categories provided in the request");
+                return BadRequest("No categories provided.");
             }
 
-            return Ok("Collection updated successfully.");
+            var categoryCollection = _database.GetCollection<BsonDocument>("Category");
+
+            foreach (var categoryOrder in request.Categories)
+            {
+                // Log each category update attempt
+                Console.WriteLine($"Processing category with Name: {categoryOrder.Name}, New Order: {categoryOrder.Order}");
+
+                var filter = Builders<BsonDocument>.Filter.Eq("Name", categoryOrder.Name);
+                var update = Builders<BsonDocument>.Update.Set("Order", categoryOrder.Order);
+
+                try
+                {
+                    var result = await categoryCollection.UpdateOneAsync(filter, update);
+
+                    if (result.ModifiedCount == 0)
+                    {
+                        Console.WriteLine($"Warning: Category with Name {categoryOrder.Name} not found or not modified.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Success: Updated category {categoryOrder.Name} to order {categoryOrder.Order}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error updating category with Name {categoryOrder.Name}: {ex.Message}");
+                    return StatusCode(500, $"Error updating category with Name {categoryOrder.Name}: {ex.Message}");
+                }
+            }
+
+            Console.WriteLine("All categories processed successfully");
+            return Ok("Category order updated successfully.");
         }
+
+
+
 
 
 
@@ -117,7 +163,7 @@ namespace backend.Controllers
             var itemCollection = _database.GetCollection<BsonDocument>("Item");
 
             var filter2 = Builders<BsonDocument>.Filter.Eq("CategoryName", name);
-            var itemExists = itemCollection.Find(filter2).Any(); 
+            var itemExists = itemCollection.Find(filter2).Any();
 
             if (itemExists)
             {
